@@ -18047,7 +18047,9 @@ function BeeSwarmSimulator(DATA){
                 
             } else {
                 
-                this.vel-=dt*20
+                const fallSpeed=this.combo?bssCoconutCatchRate(this.combo.kicks):1
+                // Square acceleration so fall duration scales inversely with speed.
+                this.vel-=dt*20*fallSpeed*fallSpeed
                 this.glow+=dt
                 this.y+=this.vel*dt
                 
@@ -36005,9 +36007,9 @@ function bssCoconutBeltPollenMultiplier(player,field,bee){
 }
 // BSS compact coconut badge v3
 // BSS combo timing and badge v4
-// Gentle progression: +0.6% per catch, capped at 30% faster.
+// Each successful juggle raises audio and fall speed by 1%, up to 2x.
 function bssCoconutCatchRate(catches){
-    return 1+Math.min(0.30,Math.max(0,Number(catches)||0)*0.006)
+    return 1+Math.min(1,Math.max(0,Number(catches)||0)*0.01)
 }
 function bssCoconutComboDelay(catches){
     return Math.max(0.15,3*Math.pow(0.88,Math.max(0,(Number(catches)||1)-1)))
