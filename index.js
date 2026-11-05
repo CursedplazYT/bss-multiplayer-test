@@ -21566,7 +21566,7 @@ function BeeSwarmSimulator(DATA){
                 });a.mesh.setBuffers();a.signature=signature
             }
             a.mesh.render()
-            textRenderer.addSingle(peer.name+"'s Hive",[home[0]+1.6,home[1]+Math.max(1,rows.length)*0.8-1.2,home[2]+0.4],COLORS.whiteArr,-0.8,false)
+            textRenderer.addSingle(peer.name+" Hive",[home[0]+1.6,home[1]+Math.max(1,rows.length)*0.8-1.2,home[2]+0.4],COLORS.whiteArr,-0.8,false)
             rows.forEach((row,y)=>row.forEach((b,x)=>{if(b?.type)textRenderer.addSingle(String(b.level),[home[0]+x*.8,home[1]+y*.8-2.5,home[2]+.1],COLORS.whiteArr,-1.5,false)}))
         }
     }
@@ -29473,11 +29473,11 @@ function BeeSwarmSimulator(DATA){
         
         out.addSingle=function(message,pos,color,scale=1,splitCommas=true,addCommas=true,offx=0,offy=0){
 
-            let m=message
+            let m=String(message ?? "")
             
             if(splitCommas){
                 
-                m=message.split('/')
+                m=String(message ?? "").split('/')
                 
                 if(m.length>1){
                     
@@ -29499,7 +29499,7 @@ function BeeSwarmSimulator(DATA){
             
             for(let i=0;i<m.length;i++){
                 
-                out.instanceData.push(pos[0],pos[1],pos[2],(i-((m.length-1)*0.5))*(!splitCommas?0.135:0.145)+offx,offy,charUV[m[i]][0],charUV[m[i]][1],color[0]*MATH.INV_255,color[1]*MATH.INV_255,color[2]*MATH.INV_255,s,s,0)
+                out.instanceData.push(pos[0],pos[1],pos[2],(i-((m.length-1)*0.5))*(!splitCommas?0.135:0.145)+offx,offy,(charUV[m[i]]||charUV[" "])[0],(charUV[m[i]]||charUV[" "])[1],color[0]*MATH.INV_255,color[1]*MATH.INV_255,color[2]*MATH.INV_255,s,s,0)
                 
             }
             
