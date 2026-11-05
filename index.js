@@ -17952,8 +17952,10 @@ function BeeSwarmSimulator(DATA){
         }
 
         die(index){
+            const forcedMiss=!!(this.combo&&this.combo.kicks>=100)
+            if(forcedMiss)player.addMessage('Coconut Combo complete: 100 catches! The next coconut cannot be caught.')
             // Original coconut thud, once per landing.
-            const caughtForAudio=!this.isBigFatBully&&vec3.sqrDist(this.pos,[player.body.position.x,player.body.position.y,player.body.position.z])<=this.displaySize
+            const caughtForAudio=!forcedMiss&&!this.isBigFatBully&&vec3.sqrDist(this.pos,[player.body.position.x,player.body.position.y,player.body.position.z])<=this.displaySize
             if(!(this.combo&&caughtForAudio)&&(player.fieldIn===this.field||vec3.sqrDist(this.pos,[player.body.position.x,player.body.position.y,player.body.position.z])<=1600))gameAudio.effect(caughtForAudio?'coconutCatch':'coconutImpact')
             
             if(this.isBigFatBully){
@@ -17966,7 +17968,7 @@ function BeeSwarmSimulator(DATA){
                 
                 let hpt=Math.ceil(Math.min(player.convertTotal,player.pollen)/5)+1000
                 
-                if(vec3.sqrDist(this.pos,[player.body.position.x,player.body.position.y,player.body.position.z])<=this.displaySize){
+                if(!forcedMiss&&vec3.sqrDist(this.pos,[player.body.position.x,player.body.position.y,player.body.position.z])<=this.displaySize){
 
                     // Catch sound is played once by the landing handler.
                     if(!this.combo&&recordBssSoloCoconutCatch(player,this.field)){
@@ -18007,7 +18009,7 @@ function BeeSwarmSimulator(DATA){
             
             if(this.combo){
                 const dx=this.pos[0]-player.body.position.x,dz=this.pos[2]-player.body.position.z
-                const caught=player.fieldIn===this.field&&vec3.sqrDist(this.pos,[player.body.position.x,player.body.position.y,player.body.position.z])<=this.displaySize
+                const caught=!forcedMiss&&player.fieldIn===this.field&&vec3.sqrDist(this.pos,[player.body.position.x,player.body.position.y,player.body.position.z])<=this.displaySize
                 if(caught&&this.field!=='AntField'&&player.currentGear.belt==='coconutBelt'){
                     if(!this.combo.kicks&&dx*dx+dz*dz<=0.64)this.combo.lockedField=this.field
                     advanceBssCoconutCombo(this.combo,this.field,bssComboFieldColor(fieldInfo[this.field]))
@@ -18047,7 +18049,7 @@ function BeeSwarmSimulator(DATA){
                 
             } else {
                 
-                const fallSpeed=this.combo?bssCoconutCatchRate(this.combo.kicks):1
+                const fallSpeed=this.combo?bssCoconutFallRate(this.combo.kicks):1
                 // Square acceleration so fall duration scales inversely with speed.
                 this.vel-=dt*20*fallSpeed*fallSpeed
                 this.glow+=dt
@@ -35518,7 +35520,7 @@ function createBssAudio(){
     function priorityMix(){
         const combo=performance.now()<comboChainUntil&&settings.effects>0||Array.from(playing).some(a=>a.bssEffect.startsWith('coconutCombo')&&!a.paused&&bssEffectVolume(settings,a.bssEffect,a.bssGain)>0)
         const star=!!(currentStar&&settings.stars>0&&!settings.muted)
-        return {music:combo?0:star?0.06:1,star:combo?0:1,effects:combo?0.12:star?0.08:1}
+        return {music:combo?0:star?0.06:1,star:combo?0:1,effects:combo?0.20:star?0.08:1}
     }
     function musicVolume(){
         if(settings.muted)return 0
@@ -36010,6 +36012,11 @@ function bssCoconutBeltPollenMultiplier(player,field,bee){
 // Each successful juggle raises audio and fall speed by 1%, up to 2x.
 function bssCoconutCatchRate(catches){
     return 1+Math.min(1,Math.max(0,Number(catches)||0)*0.01)
+}
+// Steep difficulty curve: 4.4x fall speed at 20 consecutive catches.
+function bssCoconutFallRate(catches){
+    const n=Math.max(0,Number(catches)||0)
+    return Math.min(9,1+0.09*n+0.004*n*n)
 }
 function bssCoconutComboDelay(catches){
     return Math.max(0.15,3*Math.pow(0.88,Math.max(0,(Number(catches)||1)-1)))
