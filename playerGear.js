@@ -790,18 +790,30 @@ window.playerGear={
         demonMask:{
             
             mesh:function(box,cylinder,sphere){
-                
-                sphere(0,0.6,0,0.5*1.414,2,0.25,0,0)
-                cylinder(0,0.65,0,0.28*1.414,0.095,10,1.1,0,0,90,0,0)
-                cylinder(0,0.35,0,0.52*0.5*1.415,0.45,10,0.25,0,0,90,0,0)
-                box(-0.1,0.4,0.32,0.05,0.1,0.1,false,[1.1,0,0])
-                box(0.1,0.4,0.32,0.05,0.1,0.1,false,[1.1,0,0])
-                box(0,0.25,0.32,0.2,0.05,0.1,false,[1.1,0,0])
-                
-                box(-0.3,0.9,0.1,0.13,0.4,0.13,[0,0,20],[1.1,0,0])
-                box(0.3,0.9,0.1,0.13,0.4,0.13,[0,0,-20],[1.1,0,0])
+                // Reference-shaped Demon Mask: black helmet, swept horns and raised red markings.
+                const black=[0.025,0.028,0.028], red=[0.38,0.009,0.014];
+                sphere(0,0.64,0,0.355,3,...black);
+                cylinder(0,0.36,0,0.333,0.51,12,...black,90,0,0);
+                cylinder(0,0.665,0,0.372,0.085,24,...red,90,0,0);
+                cylinder(0,0.603,0,0.425,0.058,24,0.43,0.012,0.018,90,0,0);
+                // Each tapered horn follows an outward curve, then turns upward to a sharp tip.
+                const horn=[[0.255,0.72,0.132],[0.365,0.84,0.113],[0.485,1.00,0.085],[0.585,1.17,0.055],[0.655,1.34,0.025],[0.675,1.46,0.001]];
+                for(const side of [-1,1]){
+                    for(let i=0;i<horn.length-1;i++){
+                        const a=horn[i],b=horn[i+1],dx=(b[0]-a[0])*side,dy=b[1]-a[1];
+                        cylinder((a[0]+b[0])*side/2,(a[1]+b[1])/2,-0.025,b[2],Math.hypot(dx,dy)+0.008,10,0.33+i*0.012,0.008,0.012,-90,0,-Math.atan2(dx,dy)*180/Math.PI,a[2]);
+                    }
+                    // Angular curling eyes and cheek pattern, mirrored across the face.
+                    const paths=[[[0.035,0.52],[0.12,0.485],[0.245,0.54]],[[0.12,0.485],[0.095,0.415],[0.13,0.365],[0.205,0.375],[0.237,0.425],[0.20,0.445]],[[0.235,0.31],[0.24,0.235],[0.17,0.23],[0.095,0.275],[0,0.16]]];
+                    for(const path of paths)for(let i=1;i<path.length;i++){
+                        const a=path[i-1],b=path[i],x=(a[0]+b[0])*side/2,y=(a[1]+b[1])/2;
+                        const dx=(b[0]-a[0])*side,dy=b[1]-a[1];
+                        const z=Math.sqrt(Math.max(0,0.333*0.333-x*x))+0.012;
+                        box(x,y,z,0.043,Math.hypot(dx,dy)+0.022,0.028,[0,0,-Math.atan2(dx,dy)*180/Math.PI],red);
+                    }
+                }
             },
-            
+
             applyStats:function(stats,player){
                 
                 stats.capacityMultiplier*=2
