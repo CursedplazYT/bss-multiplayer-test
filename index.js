@@ -21561,7 +21561,7 @@ function BeeSwarmSimulator(DATA){
                     rows.forEach((row,y)=>row.forEach((b,x)=>{
                         const type=b&&beeInfo[b.type]?b.type:null
                         slot(home[0]+x*0.8,home[1]+y*0.8-2.25,home[2],0.35,0.35,type,!!b?.gifted)
-                        if(b?.gifted)ring(home[0]+x*0.8,home[1]+y*0.8-2.25,home[2]+0.03,0.45,0.45)
+                        if(b?.gifted)ring(home[0]+x*0.8,home[1]+y*0.8-2.25,home[2]-0.2,0.45,0.45)
                     }))
                 });a.mesh.setBuffers();a.signature=signature
             }
