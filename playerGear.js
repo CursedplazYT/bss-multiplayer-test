@@ -1224,16 +1224,27 @@ window.playerGear={
         coconutCanister:{
             
             mesh:function(box,cylinder,sphere){
-                
-                sphere(0,0,-0.6,1.3,2,0.4,0.2,0)
-                sphere(-0.3,0.45,-0.6,0.4,1,0.1,0.05,0)
-                sphere(-0.15,0.4,-0.9,0.4,1,0.1,0.05,0)
-                sphere(0.05,0.5,-0.6,0.4,1,0.1,0.05,0)
-                cylinder(0,0,-0.6,0.3,1.3,10,1.2,1.2,1.2,90,0,90)
-                cylinder(-0.425,0,-0.6,0.2,0.57,10,100,0,0,90,0,90)
-                cylinder(0.425,0,-0.6,0.2,0.57,10,0,0,100,90,0,90)
+                // Reference Coconut Canister, outward face points toward negative Z.
+                sphere(0,0,-0.6,1.3,3,0.47,0.30,0.18);
+                const white=[1.05,1.10,1.12];
+                // White side pods and inset colored end caps.
+                for(const side of [-1,1]){
+                    cylinder(side*0.64,-0.015,-0.61,0.255,0.32,20,...white,90,0,90);
+                    cylinder(side*0.815,-0.015,-0.61,0.20,0.045,20,...(side<0?[0.035,0.07,0.9]:[0.95,0.015,0.07]),90,0,90);
+                }
+                // Three dark circular recesses, arranged like the reference.
+                for(const [x,y,z,r] of [[-0.205,0.385,-1.075,0.115],[0.205,0.40,-1.065,0.115],[0,0.17,-1.227,0.125]]){
+                    cylinder(x,y,z,r,0.035,20,0.015,0.012,0.01,0,0,0);
+                    cylinder(x,y-0.018,z-0.022,r*0.76,0.008,20,0.09,0.075,0.06,0,0,0);
+                }
+                // Raised white frame and pale gray inner lip around the two-color gauge.
+                box(0,-0.34,-1.205,1.04,0.36,0.095,false,white);
+                box(0,-0.34,-1.258,0.965,0.285,0.018,false,[0.66,0.73,0.75]);
+                box(-0.232,-0.34,-1.273,0.455,0.235,0.018,false,[0.15,0.57,0.14]);
+                box(0.232,-0.34,-1.273,0.455,0.235,0.018,false,[0.56,0.12,0.14]);
+                box(0,-0.115,-1.13,1.01,0.10,0.09,[12,0,0],white);
             },
-            
+
             applyStats:function(stats,player){
                 
                 stats.capacity+=3500000
