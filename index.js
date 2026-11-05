@@ -21759,7 +21759,7 @@ function BeeSwarmSimulator(DATA){
                 if(a.signature!==signature){
                     for(const m of [a.body,a.tool]){gl.deleteBuffer(m.mesh.buffers.verts);gl.deleteBuffer(m.mesh.buffers.index)}
                     a.body.setMeshFromFunction((box,h,cylinder,sphere,rot,g,star)=>{
-                        drawBssBlockAvatar(box,cylinder,sphere)
+                        drawBssBlockAvatar(box,cylinder,sphere,peer.state.gear.mask)
                         for(const [slot,name] of Object.entries(peer.state.gear)){
                             if(['tool','sprinkler','glider','parachute','beequips'].includes(slot)||slot.includes('Amulet'))continue
                             const item=gear[slot]&&gear[slot][name]
@@ -21772,15 +21772,17 @@ function BeeSwarmSimulator(DATA){
                     })
                     a.body.setBuffers();a.tool.setBuffers();a.signature=signature
                 }
+                a.walking=Math.min(1,vec3.distance(a.position,peer.state.position)*3)
                 const blend=Math.min(1,dt*12)
                 for(let i=0;i<3;i++)a.position[i]+=(peer.state.position[i]-a.position[i])*blend
                 const matrix=mat4.fromRotationTranslation([],peer.state.rotation,a.position)
                 gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,matrix)
                 const bodyMatrix=mat4.clone(matrix)
-                // Same classic body proportions as the local avatar.
+                mat4.translate(bodyMatrix,bodyMatrix,[0,0.20,0])
+                mat4.scale(bodyMatrix,bodyMatrix,[1,1.35,1])
                 gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,bodyMatrix);a.body.render()
-                gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,matrix);a.tool.render()
-                drawBssGripArm(bodyMatrix,matrix,peer.state.gear.tool)
+                gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,bodyMatrix);a.tool.render()
+                drawBssGripArm(bodyMatrix,bodyMatrix,peer.state.gear.tool,a.walking||0)
             }
         }
     })
@@ -21792,7 +21794,7 @@ function BeeSwarmSimulator(DATA){
         box(0,0.48,0,0.25,0.18,0.27,false,[1,0.79,0.08])
     })
     bssGripArmMesh.setBuffers()
-    function drawBssGripArm(bodyMatrix,toolMatrix,tool){
+    function drawBssGripArm(bodyMatrix,toolMatrix,tool,walking=0){
         const shoulder=vec3.transformMat4([],[-0.43,0.24,0],bodyMatrix)
         let grip=tool==='darkScythe'?vec3.transformQuat([],[-0.55,0.55,0.55],quat.fromEuler([],0,0,30)):[-0.4,0,0.4]
         grip=vec3.transformMat4([],grip,toolMatrix)
@@ -21803,6 +21805,14 @@ function BeeSwarmSimulator(DATA){
         const center=vec3.scale([],vec3.add([],shoulder,grip),0.5)
         const matrix=mat4.fromRotationTranslationScale([],rotation,center,[1,length,1])
         gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,matrix)
+        bssGripArmMesh.render()
+        // The free arm pivots slightly at the shoulder while walking.
+        const free=mat4.clone(bodyMatrix)
+        mat4.translate(free,free,[0.45,0.30,0])
+        mat4.rotateX(free,free,Math.sin(TIME*9)*0.16*walking)
+        mat4.translate(free,free,[0,-0.34,0])
+        mat4.scale(free,free,[1,0.68,1.25])
+        gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,free)
         bssGripArmMesh.render()
     }
 
@@ -25741,7 +25751,7 @@ function BeeSwarmSimulator(DATA){
 
             playerMesh.setMeshFromFunction(function(box,a,cylinder,sphere,applyFinalRotation,c,star){
 
-                drawBssBlockAvatar(box,cylinder,sphere)
+                drawBssBlockAvatar(box,cylinder,sphere,out.currentGear.mask)
                 
                 //eeeeeeeeeeeeeeeeeeeeee
                 // box(0,0,0,3,0.1,3,false,[0,2,0])
@@ -26969,8 +26979,11 @@ function BeeSwarmSimulator(DATA){
             
             // Body is 25 percent taller than the previous 1.12 visual scale.
             out.modelMatrix[13]+=0.06
+            out.modelMatrix[13]+=0.14
+            mat4.scale(out.modelMatrix,out.modelMatrix,[1,1.35,1])
             mat4.copy(out.toolMatrix,out.modelMatrix)
-            // Classic block proportions are authored directly in the body mesh.
+            const walking=Math.min(1,Math.hypot(out.body.velocity.x,out.body.velocity.z)/3)
+            mat4.rotateZ(out.toolMatrix,out.toolMatrix,Math.sin(TIME*9)*0.025*walking)
             mat4.rotateX(out.toolMatrix,out.toolMatrix,Math.max(0,(-Math.abs(out.toolRot-2)+2)*MATH.QUATER_PI))
             
             if(out.viewMatrixToChange){
@@ -34892,7 +34905,7 @@ function BeeSwarmSimulator(DATA){
 
             gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,player.modelMatrix)
             playerMesh.render()
-            drawBssGripArm(player.modelMatrix,player.toolMatrix,player.currentGear.tool)
+            drawBssGripArm(player.modelMatrix,player.toolMatrix,player.currentGear.tool,Math.min(1,Math.hypot(player.body.velocity.x,player.body.velocity.z)/3))
         }
         
         gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,player.toolMatrix)
@@ -36244,12 +36257,12 @@ function bssSafeFlowerCoordinate(value,size){
 }
 
 // Classic yellow/blue/green block avatar. Equipment remains on its existing anchors.
-function drawBssBlockAvatar(box,cylinder,sphere){
+function drawBssBlockAvatar(box,cylinder,sphere,mask){
     const yellow=[1,0.79,0.08],blue=[0.05,0.38,0.76],green=[0.53,0.69,0.16],black=[0.02,0.02,0.02]
     box(0,0,0,0.64,0.70,0.36,false,blue)
     box(-0.17,-0.60,0,0.30,0.50,0.34,false,green)
     box(0.17,-0.60,0,0.30,0.50,0.34,false,green)
-    box(0.45,-0.01,0,0.24,0.68,0.34,false,yellow)
+    if(mask&&mask!=='none')return // The equipped mask fully covers the head.
     cylinder(0,0.60,0,0.215,0.40,24,...yellow,90,0,0)
     for(const side of [-1,1])sphere(side*0.072,0.64,0.206,0.038,2,...black)
     for(let i=0;i<7;i++){
