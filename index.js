@@ -36051,6 +36051,8 @@ function drawBssCoconutBelt(box,cylinder,sphere){
     box(0,-0.1,-0.22,0.75,0.11,0.07,false,brown)
     for(const side of [-1,1])box(side*0.34,-0.1,0.015,0.065,0.11,0.48,false,brown)
     const coconut=(x,y,z,r,color)=>{
+        // Keep full coconut bodies outside the player's 0.29-radius torso.
+        z+=0.30
         sphere(x,y,z,r,2,...color)
         for(const [dx,dy] of [[-0.24,0.18],[0.24,0.18],[0,-0.26]]){
             const px=dx*r,py=dy*r,pz=Math.sqrt(r*r-px*px-py*py)
@@ -36065,7 +36067,7 @@ function drawBssCoconutBelt(box,cylinder,sphere){
     coconut(0.275,-0.11,0.235,0.18,white)
     coconut(0,-0.12,0.29,0.245,brown)
     const fin=(points,edge,fill)=>{
-        points=points.map(p=>[p[0],p[1],0.555])
+        points=points.map(p=>[p[0],p[1],0.855])
         if(!box.bssCoconutTriangle)return
         // Keep front caps facing outward for back-face culling.
         if((points[1][0]-points[0][0])*(points[2][1]-points[0][1])-(points[1][1]-points[0][1])*(points[2][0]-points[0][0])<0)points=[points[0],points[2],points[1]]
