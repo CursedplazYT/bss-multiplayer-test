@@ -19438,6 +19438,10 @@ function BeeSwarmSimulator(DATA){
         update(){
 
             let pollen=Math.max(this.pollenBefore-player.stats['pollenFrom'+this.field],0)
+            if(mp.active()){
+                const shared=mpShared.sprouts.find(sp=>sp.id===this.mpId)
+                pollen=shared?shared.remaining:this.amount
+            }
 
             this.growth+=((pollen*this.invAmount)-this.growth)*dt*15
 
@@ -21491,9 +21495,120 @@ function BeeSwarmSimulator(DATA){
 
     let playerMesh=new Mesh(false)
     // Remote avatars use this game's existing gear geometry.
+    // Network replicas are rendered only. They never run another player's Bee,
+    // Planter or Sprout update/harvest functions and cannot mutate that save.
+    const mp=window.BSSMultiplayer,mpHives=new Map(),mpBeePositions=new Map()
+    let mpShared={sprouts:[],drops:[]},mpIncomingDrop=false,mpSessionId=null,mpOwnedHiveslot=0
+    function mpFreeMesh(m){if(m?.mesh){gl.deleteBuffer(m.mesh.buffers.verts);gl.deleteBuffer(m.mesh.buffers.index)}}
+    function mpHome(slot){return [7.375-slot*8,1.5,-7.5]}
+    function mpSetHome(slot){
+        if(mpOwnedHiveslot===slot)return
+        mpOwnedHiveslot=slot
+        const target=mpHome(slot),delta=target[0]-player.hivePos[0]
+        player.hivePos=target
+        for(const key of ['hive','hiveEffects'])if(triggers[key]){triggers[key].minX+=delta;triggers[key].maxX+=delta}
+        player.updateHive()
+    }
+    function mpSnapshot(){
+        const fieldPollen={};for(const field of Object.keys(fieldInfo))fieldPollen[field]=player.stats['pollenFrom'+field]||0
+        const sprouts=objects.mobs.filter(m=>m instanceof Sprout).map(m=>{
+            if(!m.mpId?.startsWith(mpSessionId+':'))m.mpId=mp.uid()
+            return {id:m.mpId,type:m.type,field:m.field,pos:m.pos.slice(0,3),remaining:Math.max(0,m.pollenBefore-player.stats['pollenFrom'+m.field])}
+        })
+        return {position:[player.body.position.x,player.body.position.y,player.body.position.z],rotation:Array.from(player.rotQuat),gear:player.currentGear,
+            bees:objects.bees.slice(0,60).map(b=>({type:b.type,pos:b.pos.slice(0,3),dir:(b.moveDir?.length===3?b.moveDir:[0,0,1]).slice(),gifted:!!b.gifted})),
+            hive:player.hive.map(row=>row.map(b=>b?{type:b.type,gifted:!!b.gifted,level:b.level}:null)),
+            planters:objects.planters.map(p=>({type:p.type,pos:p.pos.slice(0,3),progress:Math.max(0,Math.min(1,p.growth/p.maxGrowth)),glistering:!!p.glistering})),
+            sprouts,fieldPollen,
+            drops:objects.tokens.filter(t=>t.mpId?.startsWith(mpSessionId+':')&&!t.mpRemote&&!t.collected&&t.life>0).map(t=>({id:t.mpId,type:t.type,pos:t.pos.slice(0,3),amount:t.amount,life:t.life,source:t.from}))}
+    }
+    function mpReceive(data){
+        mpShared={sprouts:data.sprouts||[],drops:data.drops||[]}
+        const present=new Map(mpShared.drops.map(d=>[d.id,d]))
+        for(const t of objects.tokens)if(t.mpId&&!t.collected){
+            const d=present.get(t.mpId)
+            if(!d){if(t.mpRemote||t.mpSeen)t.life=0}
+            else{t.mpSeen=true;t.life=Math.min(t.life,d.life)}
+        }
+        const existing=new Set(objects.tokens.filter(t=>t.life>0).map(t=>t.mpId))
+        for(const d of mpShared.drops)if(!existing.has(d.id)&&(items[d.type]||d.type==='honey')){
+            mpIncomingDrop=true
+            try{
+                const t=new LootToken(d.life,d.pos.slice(),d.type,d.amount,false,d.source,[d.source==='Sprout'?'tokensFromSprouts':'tokensFromPlanters'])
+                t.mpId=d.id;t.mpRemote=d.owner!==mpSessionId;t.mpOwner=d.owner;t.mpSeen=true
+                objects.tokens.push(t)
+            }finally{mpIncomingDrop=false}
+        }
+    }
+    function mpClear(){
+        for(const a of mpHives.values())mpFreeMesh(a.mesh);mpHives.clear();mpBeePositions.clear()
+        mpShared={sprouts:[],drops:[]}
+        for(const t of objects.tokens)if(t.mpId){if(t.mpRemote)t.life=0;else{delete t.mpId;delete t.mpSeen}}
+    }
+    function mpRenderHives(peers){
+        const present=new Set(peers.map(p=>p.id))
+        for(const [id,a]of mpHives)if(!present.has(id)){mpFreeMesh(a.mesh);mpHives.delete(id)}
+        for(const peer of peers){
+            const rows=peer.state?.hive;if(!rows)continue
+            const home=mpHome(peer.slot),signature=JSON.stringify([peer.slot,rows])
+            let a=mpHives.get(peer.id)
+            if(!a){a={mesh:new Mesh(true)};mpHives.set(peer.id,a)}
+            if(a.signature!==signature){
+                mpFreeMesh(a.mesh)
+                a.mesh.setMeshFromFunction((box,slot,c,s,r,ring)=>{
+                    // Board is visual only; no collision or harvest triggers.
+                    box(home[0]+1.6,5,home[2]-0.3,5,12,0.2,false,[0.38,0.25,0.05],false,false)
+                    rows.forEach((row,y)=>row.forEach((b,x)=>{
+                        const type=b&&beeInfo[b.type]?b.type:null
+                        slot(home[0]+x*0.8,home[1]+y*0.8-2.25,home[2],0.35,0.35,type,!!b?.gifted)
+                        if(b?.gifted)ring(home[0]+x*0.8,home[1]+y*0.8-2.25,home[2]+0.03,0.45,0.45)
+                    }))
+                });a.mesh.setBuffers();a.signature=signature
+            }
+            a.mesh.render()
+            textRenderer.addSingle(peer.name+"'s Hive",[home[0]+1.6,home[1]+Math.max(1,rows.length)*0.8-1.2,home[2]+0.4],COLORS.whiteArr,-0.8,false)
+            rows.forEach((row,y)=>row.forEach((b,x)=>{if(b?.type)textRenderer.addSingle(String(b.level),[home[0]+x*.8,home[1]+y*.8-2.5,home[2]+.1],COLORS.whiteArr,-1.5,false)}))
+        }
+    }
+    function mpRenderBees(peers){
+        const visible=new Set()
+        for(const peer of peers)for(const [i,b]of (peer.state?.bees||[]).entries()){
+            const info=beeInfo[b.type];if(!info)continue
+            const key=peer.id+':'+i;visible.add(key)
+            let position=mpBeePositions.get(key);if(!position){position=b.pos.slice();mpBeePositions.set(key,position)}
+            for(let j=0;j<3;j++)position[j]+=(b.pos[j]-position[j])*Math.min(1,dt*12)
+            meshes.bees.instanceData.push(...position,b.type==='baby'||b.type==='tadpole'?0.65:1,...b.dir,BEE_FLY,info.u,info.v+(b.gifted?GIFTED_BEE_TEXTURE_OFFSET:0),info.meshPartId)
+        }
+        for(const key of mpBeePositions.keys())if(!visible.has(key))mpBeePositions.delete(key)
+    }
+    function mpMobMesh(key,position,scale=1){
+        const mesh=meshes[key];if(!mesh)return
+        gl.bindBuffer(gl.ARRAY_BUFFER,mesh.vertBuffer);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,mesh.indexBuffer)
+        gl.vertexAttribPointer(glCache.mob_vertPos,3,gl.FLOAT,gl.FALSE,24,0);gl.vertexAttribPointer(glCache.mob_vertColor,3,gl.FLOAT,gl.FALSE,24,12)
+        gl.uniform4fv(glCache.mob_instanceInfo1,[...position,0]);gl.uniform2f(glCache.mob_instanceInfo2,scale,1)
+        gl.drawElements(gl.TRIANGLES,mesh.indexAmount,gl.UNSIGNED_SHORT,0)
+    }
+    function mpRenderWorld(peers){
+        for(const peer of peers)for(const p of peer.state?.planters||[]){
+            mpMobMesh(p.type+'Planter',p.pos)
+            const height={paper:1.5,pesticide:1.5,plenty:2.4}[p.type]||1.175
+            const size=({paper:1,plastic:1.25,candy:1.3,redClay:1.35,blueClay:1.35,tacky:1.4,pesticide:1.5,petal:1.75,plenty:2}[p.type]||1)*p.progress+.3
+            meshes.explosions.instanceData.push(p.pos[0],p.pos[1]+height+size*.5,p.pos[2],.1,.75,.1,1,size,1.03)
+            textRenderer.addSingle(peer.name+': '+MATH.doGrammar(p.type+'Planter')+' '+(p.progress*100).toFixed(1)+'%',[p.pos[0],p.pos[1]+height+size+.5,p.pos[2]],COLORS.whiteArr,-.6,false)
+        }
+        for(const sp of mpShared.sprouts)if(sp.owner!==mpSessionId&&sp.remaining>0){
+            if(!fieldInfo[sp.field])continue
+            mpMobMesh(sp.type+'Sprout',sp.pos,.6+(1-sp.remaining/sp.amount)*1.6)
+            textRenderer.addSingle(MATH.addCommas(String(Math.ceil(sp.remaining))),[sp.pos[0],sp.pos[1]+4,sp.pos[2]],COLORS.whiteArr,-3.5,false)
+        }
+    }
+
     const remoteAvatars=new Map()
     window.BSSMultiplayer.attach({
-        snapshot:()=>({position:[player.body.position.x,player.body.position.y,player.body.position.z],rotation:Array.from(player.rotQuat),gear:player.currentGear}),
+        snapshot:mpSnapshot,
+        receive:mpReceive,clear:mpClear,
+        room(info){mpSessionId=info?.id||null;mpSetHome(info?.slot||0)},
+        hives:mpRenderHives,bees:mpRenderBees,world:mpRenderWorld,
         draw(peers){
             const present=new Set(peers.map(p=>p.id))
             for(const [id,a] of remoteAvatars)if(!present.has(id)){
@@ -21517,7 +21632,7 @@ function BeeSwarmSimulator(DATA){
                     })
                     a.tool.setMeshFromFunction((box,h,cylinder,sphere,rot,g,star)=>{
                         const item=gear.tool[peer.state.gear.tool]
-                        if(item)item.mesh(box,cylinder,sphere,star,rot)
+                        if(item&&typeof item.mesh==='function')item.mesh(box,cylinder,sphere,star,rot)
                     })
                     a.body.setBuffers();a.tool.setBuffers();a.signature=signature
                 }
@@ -30331,6 +30446,9 @@ function BeeSwarmSimulator(DATA){
             this.rotation=Math.random()*MATH.TWO_PI
             this.canBeLinked=canBeLinked
             this.from=source
+            if(!mpIncomingDrop&&mp.active()&&['Sprout','Planter'].includes(source)){
+                this.mpId=mp.uid();this.mpOwner=mp.id();this.canBeLinked=false
+            }
             if(vec3.sqrDist(this.pos,[player.body.position.x,player.body.position.y,player.body.position.z])<=6400)gameAudio.lootSpawn(this.type,this.from)
             
             if(this.type==='honey'){
@@ -30351,6 +30469,19 @@ function BeeSwarmSimulator(DATA){
         }
         
         collect(){
+            if(this.mpId&&!this.mpApproved){
+                if(this.collected||this.mpPending||!mp.active()||(this.mpRemote&&this.from==='Planter'))return
+                if(this.mpRetryAt&&TIME<this.mpRetryAt)return
+                this.mpPending=true
+                mp.claim(this.mpId).then(result=>{
+                    if(result.granted){
+                        // Apply the server's immutable type and quantity only once.
+                        this.type=result.drop.type;this.amount=result.drop.amount
+                        this.mpApproved=true;this.collect()
+                    }else if(this.mpSeen&&!result.private)this.life=0
+                }).catch(()=>{this.mpRetryAt=TIME+1}).finally(()=>{this.mpPending=false})
+                return
+            }
             
             if(!this.collected){
                 
@@ -34752,6 +34883,7 @@ function BeeSwarmSimulator(DATA){
         
         gl.bindTexture(gl.TEXTURE_2D,textures.bees)
         player.hiveMesh.render()
+        mp.hives()
         
         player.updateFields()
         gameAudio.tick(player,isBeesmas,triggers,TIME,fieldInfo,mainStarAudio())
@@ -34800,6 +34932,7 @@ function BeeSwarmSimulator(DATA){
         gl.vertexAttribPointer(glCache.bee_vertPos,3,gl.FLOAT,gl.FALSE,28,0)
         gl.vertexAttribPointer(glCache.bee_vertUV,4,gl.FLOAT,gl.FALSE,28,12)
         
+        mp.bees()
         gl.bindBuffer(gl.ARRAY_BUFFER,meshes.bees.instanceBuffer)
         gl.bufferData(gl.ARRAY_BUFFER,Float32Array.from(meshes.bees.instanceData),gl.DYNAMIC_DRAW)
         
@@ -34904,6 +35037,8 @@ function BeeSwarmSimulator(DATA){
                 objects.planters[i].die(i)
             }
         }
+
+        mp.world()
 
         gl.useProgram(explosionRendererProgram)
         
