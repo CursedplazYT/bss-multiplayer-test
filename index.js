@@ -36047,12 +36047,11 @@ function registerBssCoconutBelt(gear){
 // Reference-style coconut belt: whole coconuts and raised tricolor fins.
 function drawBssCoconutBelt(box,cylinder,sphere){
     const brown=[0.34,0.25,0.15],white=[0.91,0.94,0.91]
-    // Narrow strap sits behind the round coconut pieces.
+    // Strap meets the inward surface of each coconut around the waist.
+    box(0,-0.10,0.305,0.62,0.10,0.06,false,brown)
     box(0,-0.1,-0.22,0.75,0.11,0.07,false,brown)
     for(const side of [-1,1])box(side*0.34,-0.1,0.015,0.065,0.11,0.48,false,brown)
     const coconut=(x,y,z,r,color)=>{
-        // Keep full coconut bodies outside the player's 0.29-radius torso.
-        z+=0.30
         sphere(x,y,z,r,2,...color)
         for(const [dx,dy] of [[-0.24,0.18],[0.24,0.18],[0,-0.26]]){
             const px=dx*r,py=dy*r,pz=Math.sqrt(r*r-px*px-py*py)
@@ -36061,13 +36060,12 @@ function drawBssCoconutBelt(box,cylinder,sphere){
             sphere(x+px,y+py,z+pz+r*0.024,r*0.145,1,1,1,0.97)
         }
     }
-    coconut(-0.33,-0.06,0.025,0.16,brown)
-    coconut(0.33,-0.06,0.025,0.16,brown)
-    coconut(-0.275,-0.11,0.235,0.18,white)
-    coconut(0.275,-0.11,0.235,0.18,white)
-    coconut(0,-0.12,0.29,0.245,brown)
+    coconut(-0.46,-0.10,0.10,0.16,brown)
+    coconut(0.46,-0.10,0.10,0.16,brown)
+    coconut(-0.35,-0.11,0.34,0.18,white)
+    coconut(0.35,-0.11,0.34,0.18,white)
+    coconut(0,-0.12,0.55,0.245,brown)
     const fin=(points,edge,fill)=>{
-        points=points.map(p=>[p[0],p[1],0.855])
         if(!box.bssCoconutTriangle)return
         // Keep front caps facing outward for back-face culling.
         if((points[1][0]-points[0][0])*(points[2][1]-points[0][1])-(points[1][1]-points[0][1])*(points[2][0]-points[0][0])<0)points=[points[0],points[2],points[1]]
@@ -36075,10 +36073,10 @@ function drawBssCoconutBelt(box,cylinder,sphere){
         const center=points.reduce((v,p)=>v.map((n,i)=>n+p[i]/3),[0,0,0])
         box.bssCoconutTriangle(points.map(p=>[center[0]+(p[0]-center[0])*0.80,center[1]+(p[1]-center[1])*0.80,p[2]+0.033]),0.012,fill)
     }
-    fin([[-0.49,0.22,0.39],[-0.16,0.10,0.48],[-0.29,-0.10,0.49]],[1,0.32,0.32],[0.93,0.01,0.06])
-    fin([[0.32,0.12,0.35],[0.52,0.20,0.24],[0.38,-0.07,0.39]],[1,0.28,0.18],[1,0.045,0.02])
-    fin([[0.18,-0.14,0.58],[0.53,-0.14,0.40],[0.17,-0.36,0.58]],[0.02,0.72,1],[0.015,0.035,0.67])
-    fin([[-0.53,-0.10,0.31],[-0.37,-0.14,0.40],[-0.38,-0.28,0.40]],[0.05,0.28,1],[0.01,0.025,0.64])
+    fin([[-0.53,0.18,0.43],[-0.19,0.08,0.69],[-0.32,-0.12,0.55]],[1,0.32,0.32],[0.93,0.01,0.06])
+    fin([[0.30,0.10,0.50],[0.55,0.18,0.38],[0.38,-0.10,0.55]],[1,0.28,0.18],[1,0.045,0.02])
+    fin([[0.18,-0.14,0.75],[0.56,-0.14,0.43],[0.17,-0.35,0.66]],[0.02,0.72,1],[0.015,0.035,0.67])
+    fin([[-0.59,-0.10,0.28],[-0.37,-0.14,0.55],[-0.41,-0.28,0.48]],[0.05,0.28,1],[0.01,0.025,0.64])
 }
 
 // BSS audible Coconut Combo mix v6: normalized clips and temporary audio ducking.
