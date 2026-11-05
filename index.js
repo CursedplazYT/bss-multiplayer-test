@@ -36060,13 +36060,14 @@ function drawBssCoconutBelt(box,cylinder,sphere){
     box(0,-0.1,-0.22,0.75,0.11,0.07,false,brown)
     for(const side of [-1,1])box(side*0.34,-0.1,0.015,0.065,0.11,0.48,false,brown)
     const coconut=(x,y,z,r,color)=>{
-        sphere(x,y,z,r,2,...color)
+        // MATH.icosphere has radius 0.5; the helper scale is a diameter.
+        sphere(x,y,z,r*2,2,...color)
         for(const [dx,dy] of [[-0.24,0.18],[0.24,0.18],[0,-0.26]]){
             const px=dx*r,py=dy*r,pz=Math.sqrt(r*r-px*px-py*py)
             // Embed each ivory spot along the surface normal. Only its small cap
             // protrudes, so no detached dot or separate floating dark rim remains.
             const inset=0.90
-            sphere(x+px*inset,y+py*inset,z+pz*inset,r*0.18,2,1,1,0.97)
+            sphere(x+px*inset,y+py*inset,z+pz*inset,r*0.36,2,1,1,0.97)
         }
     }
     coconut(-0.35,-0.11,0.34,0.18,white)
