@@ -8,15 +8,27 @@ async function request(path,data){
  let result;try{result=await response.json()}catch{throw Error('Server waking up. Wait a minute and try again.')}
  if(!response.ok)throw Error(result.error||'Connection failed');return result;
 }
-function clear(){peers=[];adapter?.clear?.();adapter?.room?.(null)}
+function clear(){failedStages.clear();peers=[];adapter?.clear?.();adapter?.room?.(null)}
+// Keep a replica rendering error from terminating the main game frame.
+const failedStages=new Set();
+function reportStage(stage,error){
+ console.error('[Multiplayer '+stage+']',error);
+ let box=document.getElementById('bss-mp-render-error');
+ if(!box){box=document.createElement('div');box.id='bss-mp-render-error';box.style.cssText='position:fixed;left:12px;bottom:90px;z-index:100000;max-width:600px;padding:10px;background:#600;color:white;font:13px monospace;white-space:pre-wrap;pointer-events:auto';document.body.append(box)}
+ box.textContent='Multiplayer rendering error ('+stage+'). Your game can keep running.\n'+String(error?.stack||error).slice(0,1400)+'\nSend a screenshot of this message.';
+}
+function renderStage(stage){
+ if(failedStages.has(stage))return;
+ try{adapter?.[stage]?.(peers)}catch(error){failedStages.add(stage);reportStage(stage,error)}
+}
 window.BSSMultiplayer={
- attach(value){adapter=value},draw(){adapter?.draw(peers)},hives(){adapter?.hives?.(peers)},bees(){adapter?.bees?.(peers)},world(){adapter?.world?.(peers)},
+ attach(value){adapter=value},draw(){renderStage('draw')},hives(){renderStage('hives')},bees(){renderStage('bees')},world(){renderStage('world')},
  active:()=>!!session,id:()=>session?.id,uid:()=>session?session.id+':'+(++counter):null,
  async claim(dropId){const current=session,gen=generation;if(!current)return {granted:false};const result=await request('/claim',{...current,dropId});return gen===generation?result:{granted:false}}
 };
 function mount(){
  const panel=document.createElement('details');panel.style.cssText='position:fixed;right:12px;top:65px;z-index:99999;background:#333e;color:white;padding:10px;border-radius:7px;font:14px Arial;max-width:270px';
- const summary=document.createElement('summary');summary.textContent='Multiplayer';panel.append(summary);
+ const summary=document.createElement('summary');summary.textContent='Multiplayer • join guard 2';panel.append(summary);
  const name=document.createElement('input');name.placeholder='Your name';name.maxLength=20;
  const code=document.createElement('input');code.placeholder='Room code';code.maxLength=6;
  const status=document.createElement('p');status.textContent='Offline • separate test saves';
