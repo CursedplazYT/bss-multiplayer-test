@@ -17867,6 +17867,8 @@ function BeeSwarmSimulator(DATA){
         }
     }
 
+    // Double-sided triangular pennants, using the existing trail draw pass.
+    // Fixed count per coconut; no per-frame allocation of GPU buffers.
     class Coconut {
         
         constructor(x=player.flowerIn.x,z=player.flowerIn.z,delay=0,isBigFatBully){
@@ -17886,7 +17888,31 @@ function BeeSwarmSimulator(DATA){
             if(this.combo){this.displaySize=3.5;player.addMessage('Combo Coconut! Catch the blue ring to juggle it.')}
         }
         
+        clearComboTriangles(){
+            if(this.comboTriangles){
+                for(const t of this.comboTriangles)t.splice=true
+                this.comboTriangles=null
+            }
+        }
+
+        drawComboTriangles(){
+            const colors=[[1,0.08,0.12,1],[1,1,1,1],[0.08,0.45,1,1]]
+            if(!this.comboTriangles)this.comboTriangles=Array.from({length:12},(_,i)=>new TrailRenderer.Trail({length:2,size:1,color:colors[i%3]}))
+            for(let i=0;i<this.comboTriangles.length;i++){
+                const t=this.comboTriangles[i],lane=i%3,step=Math.floor(i/3)
+                const angle=lane*MATH.TWO_PI/3+this.glow*1.8
+                const r=0.65+step*0.18,half=0.65+step*0.13
+                const x=this.pos[0]+Math.cos(angle)*r,z=this.pos[2]+Math.sin(angle)*r
+                const y=this.y+1.6+step*1.65
+                // Downward-pointing triangle follows the falling coconut.
+                const dx=Math.cos(angle)*half,dz=Math.sin(angle)*half
+                const points=[[x,y-0.8,z],[x,y-0.8,z],[x-dx,y+0.8,z-dz],[x+dx,y+0.8,z+dz]]
+                for(let v=0;v<4;v++)t.verts.set([...points[v],...colors[lane].slice(0,3),1-step*0.16],v*7)
+            }
+        }
+
         die(index){
+            this.clearComboTriangles()
             // Original coconut thud, once per landing.
             const caughtForAudio=!this.isBigFatBully&&vec3.sqrDist(this.pos,[player.body.position.x,player.body.position.y,player.body.position.z])<=this.displaySize
             if(!(this.combo&&caughtForAudio)&&(player.fieldIn===this.field||vec3.sqrDist(this.pos,[player.body.position.x,player.body.position.y,player.body.position.z])<=1600))gameAudio.effect(caughtForAudio?'coconutCatch':'coconutImpact')
@@ -17950,8 +17976,8 @@ function BeeSwarmSimulator(DATA){
                     gameAudio.setComboActive(true)
                     if(this.combo.kicks>0){
                         const soundStep=(this.combo.kicks-1)%4+1
-                        gameAudio.effect('coconutCombo'+soundStep)
-                        if(this.combo.kicks%4===0)gameAudio.effect('coconutComboBass'+((this.combo.kicks/4-1)%4+1))
+                        gameAudio.effect('coconutCombo'+soundStep,bssCoconutCatchRate(this.combo.kicks))
+                        if(this.combo.kicks%4===0)gameAudio.effect('coconutComboBass'+((this.combo.kicks/4-1)%4+1),bssCoconutCatchRate(this.combo.kicks))
                     }
                     grantBssCoconutCombo(player,this.combo.stacks)
                     if(!player.dead){
@@ -17984,9 +18010,12 @@ function BeeSwarmSimulator(DATA){
                 this.y+=this.vel*dt
                 
                 if(this.combo){
+                    this.drawComboTriangles()
+                    const pulse=1+Math.sin(this.glow*8)*0.08
+                    meshes.cylinder_explosions.instanceData.push(this.pos[0],this.pos[1]-0.015,this.pos[2],1,1,1,0.65,this.displaySize*1.2*pulse,0.001)
                     meshes.cylinder_explosions.instanceData.push(this.pos[0],this.pos[1],this.pos[2],0.1,0.5,1,0.8,this.displaySize,0.001)
                     if(!this.combo.kicks)meshes.cylinder_explosions.instanceData.push(this.pos[0],this.pos[1]+0.015,this.pos[2],0.3,0.85,1,0.9,0.8,0.001)
-                    textRenderer.addSingle('Combo Coconut x'+this.combo.stacks,[this.pos[0],this.pos[1]+1.5,this.pos[2]],COLORS.whiteArr,0,false,false,0,0.6)
+                    textRenderer.addSingle('COCONUT COMBO x'+this.combo.stacks,[this.pos[0],this.pos[1]+2,this.pos[2]],COLORS.whiteArr,0,false,false,0,0.85)
                 }else{
                 meshes.cylinder_explosions.instanceData.push(this.pos[0],this.pos[1],this.pos[2],this.isBigFatBully?1:0,this.isBigFatBully?0:1,0,this.glow*0.75,this.displaySize,0.001)
                 }
@@ -35354,7 +35383,7 @@ function createBssAudio(){
     function priorityMix(){
         const combo=performance.now()<comboChainUntil&&settings.effects>0||Array.from(playing).some(a=>a.bssEffect.startsWith('coconutCombo')&&!a.paused&&bssEffectVolume(settings,a.bssEffect,a.bssGain)>0)
         const star=!!(currentStar&&settings.stars>0&&!settings.muted)
-        return {music:combo?0:star?0.06:1,star:combo?0:1,effects:combo?0.03:star?0.08:1}
+        return {music:combo?0:star?0.06:1,star:combo?0:1,effects:combo?0.12:star?0.08:1}
     }
     function musicVolume(){
         if(settings.muted)return 0
@@ -35843,6 +35872,10 @@ function bssCoconutBeltPollenMultiplier(player,field,bee){
 }
 // BSS compact coconut badge v3
 // BSS combo timing and badge v4
+// Gentle progression: +0.6% per catch, capped at 30% faster.
+function bssCoconutCatchRate(catches){
+    return 1+Math.min(0.30,Math.max(0,Number(catches)||0)*0.006)
+}
 function bssCoconutComboDelay(catches){
     return Math.max(0.15,3*Math.pow(0.88,Math.max(0,(Number(catches)||1)-1)))
 }
