@@ -1,2 +1,1 @@
-// After hosting server/server.mjs, paste its HTTPS URL here (no trailing slash).
-window.BSS_MULTIPLAYER_SERVER = '';
+window.BSS_MULTIPLAYER_SERVER = 'https://bss-multiplayer-test.onrender.com';
