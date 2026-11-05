@@ -10936,7 +10936,15 @@ function BeeSwarmSimulator(DATA){
                         
                         this.state='moveToHiveToConvertBalloon'
                         const honeyEarned=bssConversionHoney(this.pollen,player.honeyAtHive,player.honeyPerPollen,this.type==='diamond'?(1.4+this.level*0.03)*(this.gifted?2:1):1)
-                        player.honey+=honeyEarned
+                        const nextHoney=player.honey+honeyEarned
+                        if(this.pollen>0&&(!(honeyEarned>0)||!bssValidHoney(nextHoney)||nextHoney<=player.honey)){
+                            player.hiveBalloon.pollen=bssAddBalloonPollen(player.hiveBalloon.pollen,this.pollen)
+                            this.pollen=0
+                            this.lastBeeToConvert=false
+                            this.state='moveToPlayer'
+                            return
+                        }
+                        player.honey=nextHoney
                         
                         textRenderer.add(honeyEarned,[(player.beeWorkPosition||player.body.position).x,(player.beeWorkPosition||player.body.position).y+Math.random()*2+0.5,(player.beeWorkPosition||player.body.position).z],COLORS.honey,0,'+')
                         
@@ -36121,7 +36129,7 @@ function bssCleanHiveBalloon(balloon){
 function bssDeflateHiveBalloon(pollen,capacity){
     const p=bssPositiveAmount(pollen),c=bssPositiveAmount(capacity)
     if(!p||!c)return p
-    const fraction=Math.max(0,Math.min(1,(p/c)*0.00045))
+    const fraction=Math.max(0,Math.min(0.00045,(p/c)*0.00045))
     return Math.max(0,Math.round(p*(1-fraction)))
 }
 function bssTakeBalloonPollen(rate,available){
