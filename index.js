@@ -21623,7 +21623,7 @@ function BeeSwarmSimulator(DATA){
                 if(a.signature!==signature){
                     for(const m of [a.body,a.tool]){gl.deleteBuffer(m.mesh.buffers.verts);gl.deleteBuffer(m.mesh.buffers.index)}
                     a.body.setMeshFromFunction((box,h,cylinder,sphere,rot,g,star)=>{
-                        cylinder(0,0,0,0.11,1,20,1.45,1.45,1,90,0,0)
+                        cylinder(0,0,0,0.29,1,24,1.45,1.45,1,90,0,0)
                         for(const [slot,name] of Object.entries(peer.state.gear)){
                             if(['tool','sprinkler','glider','parachute','beequips'].includes(slot)||slot.includes('Amulet'))continue
                             const item=gear[slot]&&gear[slot][name]
@@ -22204,6 +22204,10 @@ function BeeSwarmSimulator(DATA){
             collectAmount:13,
             cooldown:1,
             mesh:function(box,cylinder,sphere,star,finalRotation){
+                // Enlarge the complete tool about its hand attachment, including rings and bubbles.
+                const originalCylinder=cylinder,originalSphere=sphere,scale=1.25;
+                cylinder=(x,y,z,r,h,n,red,green,blue,rx,ry,rz,r2)=>originalCylinder(-0.4+(x+0.4)*scale,y*scale,0.4+(z-0.4)*scale,r*scale,h*scale,n,red,green,blue,rx,ry,rz,r2===undefined?undefined:r2*scale);
+                sphere=(x,y,z,r,detail,red,green,blue)=>originalSphere(-0.4+(x+0.4)*scale,y*scale,0.4+(z-0.4)*scale,r*scale,detail,red,green,blue);
                 // Tide Popper reference silhouette, keeping the original hand attachment.
                 const x=-0.4,z=0.4,cyan=[0.22,0.80,0.89],rim=[0.38,0.96,0.98];
                 cylinder(x,0.45,z,0.075,1.20,14,...cyan,-90,0,0);
@@ -25580,7 +25584,7 @@ function BeeSwarmSimulator(DATA){
 
             playerMesh.setMeshFromFunction(function(box,a,cylinder,sphere,applyFinalRotation,c,star){
 
-                cylinder(0,0,0,0.11,1,20,1.45,1.45,1,90,0,0)
+                cylinder(0,0,0,0.29,1,24,1.45,1.45,1,90,0,0)
                 
                 //eeeeeeeeeeeeeeeeeeeeee
                 // box(0,0,0,3,0.1,3,false,[0,2,0])
