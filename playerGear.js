@@ -1283,6 +1283,12 @@ window.playerGear={
         gummyBoots:{
             
             mesh:function(box,cylinder,sphere){
+                // Match the block avatar's foot centers and ankle height.
+                const bootBox=box,bootCylinder=cylinder,bootSphere=sphere
+                box=(x,y,z,...args)=>bootBox(x*0.85,y-0.30,z,...args)
+                cylinder=(x,y,z,...args)=>bootCylinder(x*0.85,y-0.30,z,...args)
+                sphere=(x,y,z,...args)=>bootSphere(x*0.85,y-0.30,z,...args)
+
                 
                 box(-0.2,-0.5,0.04,0.36,0.15,0.73,false,[0.1*1.75,1*1.75,0.5*1.75])
                 box(0.2,-0.5,0.04,0.36,0.15,0.73,false,[0.1*1.75,1*1.75,0.5*1.75])
@@ -1315,6 +1321,12 @@ window.playerGear={
         coconutClogs:{
             
             mesh:function(box,cylinder,sphere){
+                // Match the block avatar's foot centers and ankle height.
+                const bootBox=box,bootCylinder=cylinder,bootSphere=sphere
+                box=(x,y,z,...args)=>bootBox(x*0.85,y-0.30,z,...args)
+                cylinder=(x,y,z,...args)=>bootCylinder(x*0.85,y-0.30,z,...args)
+                sphere=(x,y,z,...args)=>bootSphere(x*0.85,y-0.30,z,...args)
+
                 
                 box(-0.2,-0.5,0.04,0.37,0.15,0.74,false,[0,0,1.5])
                 box(0.2,-0.5,0.04,0.37,0.15,0.74,false,[1.5,0,0])

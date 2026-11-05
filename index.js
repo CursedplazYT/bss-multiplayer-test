@@ -21778,11 +21778,13 @@ function BeeSwarmSimulator(DATA){
                 const matrix=mat4.fromRotationTranslation([],peer.state.rotation,a.position)
                 gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,matrix)
                 const bodyMatrix=mat4.clone(matrix)
-                mat4.translate(bodyMatrix,bodyMatrix,[0,0.20,0])
-                mat4.scale(bodyMatrix,bodyMatrix,[1,1.35,1])
+                mat4.translate(bodyMatrix,bodyMatrix,[0,0.36,0])
+                mat4.scale(bodyMatrix,bodyMatrix,[1,1.55,1])
                 gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,bodyMatrix);a.body.render()
-                gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,bodyMatrix);a.tool.render()
-                drawBssGripArm(bodyMatrix,bodyMatrix,peer.state.gear.tool,a.walking||0)
+                const heldTool=mat4.clone(bodyMatrix)
+                mat4.translate(heldTool,heldTool,bssAvatarGripOffset(peer.state.gear.tool))
+                gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,heldTool);a.tool.render()
+                drawBssGripArm(bodyMatrix,heldTool,peer.state.gear.tool,a.walking||0)
             }
         }
     })
@@ -21794,7 +21796,16 @@ function BeeSwarmSimulator(DATA){
         box(0,0.48,0,0.25,0.18,0.27,false,[1,0.79,0.08])
     })
     bssGripArmMesh.setBuffers()
-    function drawBssGripArm(bodyMatrix,toolMatrix,tool,walking=0){
+    function bssAvatarWalking(p){
+        const movingInput=user.keys.w||user.keys.a||user.keys.s||user.keys.d||joystickMovement[0]||joystickMovement[1]
+        const speed=Math.hypot(p.body.velocity.x,p.body.velocity.z)
+        return movingInput?1:Math.min(1,speed/0.5)
+    }
+    function bssAvatarGripOffset(tool){
+        const old=tool==='darkScythe'?vec3.transformQuat([],[-0.55,0.55,0.55],quat.fromEuler([],0,0,30)):[-0.4,0,0.4]
+        return [-0.43-old[0],0.04-old[1],0.28-old[2]]
+    }
+    function drawBssGripArm(bodyMatrix,toolMatrix,tool,walking=0,phase=TIME*11){
         const shoulder=vec3.transformMat4([],[-0.43,0.24,0],bodyMatrix)
         let grip=tool==='darkScythe'?vec3.transformQuat([],[-0.55,0.55,0.55],quat.fromEuler([],0,0,30)):[-0.4,0,0.4]
         grip=vec3.transformMat4([],grip,toolMatrix)
@@ -21809,9 +21820,9 @@ function BeeSwarmSimulator(DATA){
         // The free arm pivots slightly at the shoulder while walking.
         const free=mat4.clone(bodyMatrix)
         mat4.translate(free,free,[0.45,0.30,0])
-        mat4.rotateX(free,free,Math.sin(TIME*9)*0.16*walking)
-        mat4.translate(free,free,[0,-0.34,0])
-        mat4.scale(free,free,[1,0.68,1.25])
+        mat4.rotateX(free,free,Math.sin(phase)*0.26*walking)
+        mat4.translate(free,free,[0,-0.24,0])
+        mat4.scale(free,free,[1,0.48,1.25])
         gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,free)
         bssGripArmMesh.render()
     }
@@ -26979,12 +26990,15 @@ function BeeSwarmSimulator(DATA){
             
             // Body is 25 percent taller than the previous 1.12 visual scale.
             out.modelMatrix[13]+=0.06
-            out.modelMatrix[13]+=0.14
-            mat4.scale(out.modelMatrix,out.modelMatrix,[1,1.35,1])
+            out.modelMatrix[13]+=0.30
+            mat4.scale(out.modelMatrix,out.modelMatrix,[1,1.55,1])
             mat4.copy(out.toolMatrix,out.modelMatrix)
-            const walking=Math.min(1,Math.hypot(out.body.velocity.x,out.body.velocity.z)/3)
-            mat4.rotateZ(out.toolMatrix,out.toolMatrix,Math.sin(TIME*9)*0.025*walking)
+            const walking=bssAvatarWalking(out)
+            const moveSpeed=Math.hypot(out.body.velocity.x,out.body.velocity.z)
+            out.avatarArmPhase=(out.avatarArmPhase||0)+dt*(3+moveSpeed*1.8)*walking
+            mat4.rotateZ(out.toolMatrix,out.toolMatrix,Math.sin(out.avatarArmPhase)*0.065*walking)
             mat4.rotateX(out.toolMatrix,out.toolMatrix,Math.max(0,(-Math.abs(out.toolRot-2)+2)*MATH.QUATER_PI))
+            mat4.translate(out.toolMatrix,out.toolMatrix,bssAvatarGripOffset(out.currentGear.tool))
             
             if(out.viewMatrixToChange){
                 
@@ -34905,7 +34919,7 @@ function BeeSwarmSimulator(DATA){
 
             gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,player.modelMatrix)
             playerMesh.render()
-            drawBssGripArm(player.modelMatrix,player.toolMatrix,player.currentGear.tool,Math.min(1,Math.hypot(player.body.velocity.x,player.body.velocity.z)/3))
+            drawBssGripArm(player.modelMatrix,player.toolMatrix,player.currentGear.tool,bssAvatarWalking(player),player.avatarArmPhase||0)
         }
         
         gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,player.toolMatrix)
