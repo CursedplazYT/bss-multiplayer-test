@@ -793,7 +793,7 @@ window.playerGear={
                 // Reference-shaped Demon Mask: black helmet, swept horns and raised red markings.
                 const black=[0.025,0.028,0.028], red=[0.38,0.009,0.014];
                 // Sphere helper uses diameter: a 0.66 scale gives a broad 0.33-radius dome.
-                sphere(0,0.67,0,0.66,4,...black);
+                sphere(0,0.51,0,0.66,4,...black);
                 const shell=(y,r,h,col)=>box.bssDemonShell?box.bssDemonShell(y,r,h,col):cylinder(0,y,0,r,h,32,...col,90,0,0);
                 shell(0.36,0.333,0.51,black);
                 shell(0.665,0.372,0.085,red);
