@@ -21365,6 +21365,23 @@ function BeeSwarmSimulator(DATA){
                 for(let i=0;i<points.length;i++){const j=(i+1)%points.length;triangle(layers[0][i],layers[0][j],layers[1][j]);triangle(layers[0][i],layers[1][j],layers[1][i])}
             }
 
+            // White eyes are colored faces of the coconut itself, never separate objects.
+            if(!this.isStatic)addBox.bssCoconutBody=function(x,y,z,radius,color){
+                const mesh=MATH.icosphere(4)
+                for(let i=0;i<mesh.index.length;i+=3){
+                    const ids=[mesh.index[i],mesh.index[i+1],mesh.index[i+2]]
+                    const center=[0,0,0]
+                    for(const id of ids)for(let k=0;k<3;k++)center[k]+=mesh.verts[id*3+k]*2/3
+                    const white=center[2]>0&&[[-0.24,0.18],[0.24,0.18],[0,-0.26]].some(([a,b])=>Math.hypot(center[0]-a,center[1]-b)<0.145)
+                    const col=white?[1,1,0.97]:color,base=verts.length/9
+                    for(const id of ids){
+                        const nx=mesh.verts[id*3]*2,ny=mesh.verts[id*3+1]*2,nz=mesh.verts[id*3+2]*2
+                        verts.push(...vec3.transformMat4([],[x+nx*radius,y+ny*radius,z+nz*radius],DIS.matrix),...col,nx,ny,nz)
+                    }
+                    index.push(base,base+1,base+2)
+                }
+            }
+
             // Closed helmet cylinder with shared ring vertices and complete caps.
             if(!this.isStatic)addBox.bssDemonShell=function(y,radius,height,color){
                 const n=32,base=verts.length/9
@@ -36060,15 +36077,8 @@ function drawBssCoconutBelt(box,cylinder,sphere){
     box(0,-0.1,-0.22,0.75,0.11,0.07,false,brown)
     for(const side of [-1,1])box(side*0.34,-0.1,0.015,0.065,0.11,0.48,false,brown)
     const coconut=(x,y,z,r,color)=>{
-        // MATH.icosphere has radius 0.5; the helper scale is a diameter.
-        sphere(x,y,z,r*2,2,...color)
-        for(const [dx,dy] of [[-0.24,0.18],[0.24,0.18],[0,-0.26]]){
-            const px=dx*r,py=dy*r,pz=Math.sqrt(r*r-px*px-py*py)
-            // Embed each ivory spot along the surface normal. Only its small cap
-            // protrudes, so no detached dot or separate floating dark rim remains.
-            const inset=0.90
-            sphere(x+px*inset,y+py*inset,z+pz*inset,r*0.36,2,1,1,0.97)
-        }
+        if(box.bssCoconutBody)box.bssCoconutBody(x,y,z,r,color)
+        else sphere(x,y,z,r*2,3,...color)
     }
     coconut(-0.35,-0.11,0.34,0.18,white)
     coconut(0.35,-0.11,0.34,0.18,white)
