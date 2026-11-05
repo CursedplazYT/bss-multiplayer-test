@@ -36072,11 +36072,15 @@ function registerBssCoconutBelt(gear){
 // Reference-style coconut belt: whole coconuts and raised tricolor fins.
 function drawBssCoconutBelt(box,cylinder,sphere){
     const brown=[0.34,0.25,0.15],white=[0.91,0.94,0.91]
+    const scale=0.70
+    const fit=p=>[p[0]*scale,-0.10+(p[1]+0.10)*scale,0.29+(p[2]-0.29)*scale]
     // Strap meets the inward surface of each coconut around the waist.
     box(0,-0.10,0.305,0.62,0.10,0.06,false,brown)
     box(0,-0.1,-0.22,0.75,0.11,0.07,false,brown)
     for(const side of [-1,1])box(side*0.34,-0.1,0.015,0.065,0.11,0.48,false,brown)
     const coconut=(x,y,z,r,color)=>{
+        ;[x,y,z]=fit([x,y,z])
+        r*=scale
         if(box.bssCoconutBody)box.bssCoconutBody(x,y,z,r,color)
         else sphere(x,y,z,r*2,3,...color)
     }
@@ -36084,12 +36088,13 @@ function drawBssCoconutBelt(box,cylinder,sphere){
     coconut(0.35,-0.11,0.34,0.18,white)
     coconut(0,-0.12,0.55,0.245,brown)
     const fin=(points,edge,fill)=>{
+        points=points.map(fit)
         if(!box.bssCoconutTriangle)return
         // Keep front caps facing outward for back-face culling.
         if((points[1][0]-points[0][0])*(points[2][1]-points[0][1])-(points[1][1]-points[0][1])*(points[2][0]-points[0][0])<0)points=[points[0],points[2],points[1]]
-        box.bssCoconutTriangle(points,0.055,edge)
+        box.bssCoconutTriangle(points,0.055*scale,edge)
         const center=points.reduce((v,p)=>v.map((n,i)=>n+p[i]/3),[0,0,0])
-        box.bssCoconutTriangle(points.map(p=>[center[0]+(p[0]-center[0])*0.80,center[1]+(p[1]-center[1])*0.80,p[2]+0.033]),0.012,fill)
+        box.bssCoconutTriangle(points.map(p=>[center[0]+(p[0]-center[0])*0.80,center[1]+(p[1]-center[1])*0.80,p[2]+0.033*scale]),0.012*scale,fill)
     }
     fin([[-0.53,0.18,0.43],[-0.19,0.08,0.69],[-0.32,-0.12,0.55]],[1,0.32,0.32],[0.93,0.01,0.06])
     fin([[0.30,0.10,0.50],[0.55,0.18,0.38],[0.38,-0.10,0.55]],[1,0.28,0.18],[1,0.045,0.02])
