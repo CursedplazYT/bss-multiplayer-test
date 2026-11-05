@@ -36060,8 +36060,6 @@ function drawBssCoconutBelt(box,cylinder,sphere){
             sphere(x+px,y+py,z+pz+r*0.024,r*0.145,1,1,1,0.97)
         }
     }
-    coconut(-0.46,-0.10,0.10,0.16,brown)
-    coconut(0.46,-0.10,0.10,0.16,brown)
     coconut(-0.35,-0.11,0.34,0.18,white)
     coconut(0.35,-0.11,0.34,0.18,white)
     coconut(0,-0.12,0.55,0.245,brown)
