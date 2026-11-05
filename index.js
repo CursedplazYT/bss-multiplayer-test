@@ -22201,18 +22201,24 @@ function BeeSwarmSimulator(DATA){
             collectAmount:13,
             cooldown:1,
             mesh:function(box,cylinder,sphere,star,finalRotation){
-                
-                cylinder(-0.4,2.2,0.4,0.25,0.05,15,1,3,7,90,0,0,0.25)
-                cylinder(-0.4,1.6,0.4,0.3,0.05,15,1,3,7,90,0,0,0.3)
-                cylinder(-0.4,1.1,0.4,0.4,0.05,15,1,3,7,90,0,0,0.4)
-                cylinder(-0.4,1.7,0.4,0.3,2.25,10,0.3,1,2,90,0,0,0)
-                box(-0.4,0.5,0.4,0.15,1.4,0.15,false,[0.1,0.8,1.8])
-                sphere(-0.4-0.8,0.85,0.4,0.25,1,100,100,100)
-                sphere(-0.4+0.8,0.85,0.4,0.25,1,100,100,100)
-                sphere(-0.4,0.85,0.4-0.8,0.25,1,100,100,100)
-                sphere(-0.4,0.85,0.4+0.8,0.25,1,100,100,100)
-                finalRotation(20,-20,0)
-                
+                // Tide Popper reference silhouette, keeping the original hand attachment.
+                const x=-0.4,z=0.4,cyan=[0.22,0.80,0.89],rim=[0.38,0.96,0.98];
+                cylinder(x,0.45,z,0.075,1.20,14,...cyan,-90,0,0);
+                cylinder(x,-0.20,z,0.075,0.14,14,...cyan,90,0,0,0);
+                // Broad lower bell, slender upper tower and needle point.
+                cylinder(x,1.12,z,0.15,0.60,20,...cyan,-90,0,0,0.33);
+                cylinder(x,1.68,z,0.09,0.52,18,...cyan,-90,0,0,0.16);
+                cylinder(x,2.06,z,0.052,0.26,16,...cyan,-90,0,0,0.09);
+                cylinder(x,2.78,z,0.001,1.20,16,...cyan,-90,0,0,0.052);
+                // Wide pale aqua horizontal rings.
+                cylinder(x,0.83,z,0.37,0.065,28,...rim,90,0,0);
+                cylinder(x,1.42,z,0.29,0.060,28,...rim,90,0,0);
+                cylinder(x,2.00,z,0.205,0.050,28,...rim,90,0,0);
+                cylinder(x,0.66,z,0.17,0.085,20,...cyan,90,0,0);
+                // White orbiting bubbles around the lower bell.
+                for(const [dx,y,dz,r] of [[-0.64,0.99,0,0.21],[0.64,0.94,0,0.21],[-0.24,0.80,0.45,0.23],[0.20,1.12,-0.40,0.20]])
+                    sphere(x+dx,y,z+dz,r,2,1.3,1.3,1.3);
+                finalRotation(20,-20,0);
             },
             ability:function(){
                 
