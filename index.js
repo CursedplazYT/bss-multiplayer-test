@@ -36055,9 +36055,10 @@ function drawBssCoconutBelt(box,cylinder,sphere){
         sphere(x,y,z,r,2,...color)
         for(const [dx,dy] of [[-0.24,0.18],[0.24,0.18],[0,-0.26]]){
             const px=dx*r,py=dy*r,pz=Math.sqrt(r*r-px*px-py*py)
-            // Dark rims and three ivory eyes on the visible face.
-            sphere(x+px,y+py,z+pz,r*0.18,1,0.13,0.12,0.09)
-            sphere(x+px,y+py,z+pz+r*0.024,r*0.145,1,1,1,0.97)
+            // Embed each ivory spot along the surface normal. Only its small cap
+            // protrudes, so no detached dot or separate floating dark rim remains.
+            const inset=0.90
+            sphere(x+px*inset,y+py*inset,z+pz*inset,r*0.18,2,1,1,0.97)
         }
     }
     coconut(-0.35,-0.11,0.34,0.18,white)
