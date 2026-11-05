@@ -10737,7 +10737,7 @@ function BeeSwarmSimulator(DATA){
                     
                     let f=fieldInfo[player.fieldIn]
                     
-                    while(this.flowerCollecting[0]===undefined||this.flowerCollecting[1]===undefined||this.flowerCollecting[0]<0||this.flowerCollecting[0]>=f.width||this.flowerCollecting[1]<0||this.flowerCollecting[1]>=f.length){
+                    for(let attempt=0;attempt<32&&(!Number.isFinite(this.flowerCollecting[0])||!Number.isFinite(this.flowerCollecting[1])||this.flowerCollecting[0]<0||this.flowerCollecting[0]>=f.width||this.flowerCollecting[1]<0||this.flowerCollecting[1]>=f.length);attempt++){
                         
                         this.flowerCollecting[0]=player.flowerIn.x+(Math.round(MATH.random(-7,7)))
                         this.flowerCollecting[1]=player.flowerIn.z+(Math.round(MATH.random(-7,7)))
@@ -10746,6 +10746,8 @@ function BeeSwarmSimulator(DATA){
                         this.collectRot=[Math.sin(t),-4,Math.cos(t)]
                     }
                     
+                    this.flowerCollecting[0]=bssSafeFlowerCoordinate(this.flowerCollecting[0],f.width)
+                    this.flowerCollecting[1]=bssSafeFlowerCoordinate(this.flowerCollecting[1],f.length)
                     this.moveTo=[f.x+this.flowerCollecting[0],f.y+flowers[player.fieldIn][this.flowerCollecting[1]][this.flowerCollecting[0]].height*0.5+0.25,f.z+this.flowerCollecting[1]]
                     vec3.sub(this.moveDir,this.moveTo,this.pos)
                     vec3.normalize(this.moveDir,this.moveDir)
@@ -11438,7 +11440,7 @@ function BeeSwarmSimulator(DATA){
                     
                     let f=fieldInfo[player.fieldIn]
                     
-                    while(this.flowerCollecting[0]===undefined||this.flowerCollecting[1]===undefined||this.flowerCollecting[0]<0||this.flowerCollecting[0]>=f.width||this.flowerCollecting[1]<0||this.flowerCollecting[1]>=f.length){
+                    for(let attempt=0;attempt<32&&(!Number.isFinite(this.flowerCollecting[0])||!Number.isFinite(this.flowerCollecting[1])||this.flowerCollecting[0]<0||this.flowerCollecting[0]>=f.width||this.flowerCollecting[1]<0||this.flowerCollecting[1]>=f.length);attempt++){
                         
                         this.flowerCollecting[0]=player.flowerIn.x+(Math.round(MATH.random(-7,7)))
                         this.flowerCollecting[1]=player.flowerIn.z+(Math.round(MATH.random(-7,7)))
@@ -11447,6 +11449,8 @@ function BeeSwarmSimulator(DATA){
                         this.collectRot=[Math.sin(t),-4,Math.cos(t)]
                     }
                     
+                    this.flowerCollecting[0]=bssSafeFlowerCoordinate(this.flowerCollecting[0],f.width)
+                    this.flowerCollecting[1]=bssSafeFlowerCoordinate(this.flowerCollecting[1],f.length)
                     this.moveTo=[f.x+this.flowerCollecting[0],f.y+flowers[player.fieldIn][this.flowerCollecting[1]][this.flowerCollecting[0]].height*0.5+0.25,f.z+this.flowerCollecting[1]]
                     vec3.sub(this.moveDir,this.moveTo,this.pos)
                     vec3.normalize(this.moveDir,this.moveDir)
@@ -17240,7 +17244,7 @@ function BeeSwarmSimulator(DATA){
                 this.field=player.fieldIn
                 this.land=[fieldInfo[this.field].x+MATH.random(0.25,0.75)*fieldInfo[this.field].width,fieldInfo[this.field].y+1.5,fieldInfo[this.field].z+MATH.random(0.25,0.75)*fieldInfo[this.field].length]
 
-                while(1){
+                for(let attempt=0;attempt<32;attempt++){
                     
                     let x=Math.round(MATH.random(-4,4))+player.flowerIn.x,z=Math.round(MATH.random(-4,4))+player.flowerIn.z
                     
@@ -17261,6 +17265,8 @@ function BeeSwarmSimulator(DATA){
                 this.land[2]+=MATH.random(-3,3)
             }
             
+            this.land[0]=fieldInfo[this.field].x+bssSafeFlowerCoordinate(this.land[0]-fieldInfo[this.field].x,fieldInfo[this.field].width)
+            this.land[2]=fieldInfo[this.field].z+bssSafeFlowerCoordinate(this.land[2]-fieldInfo[this.field].z,fieldInfo[this.field].length)
             this.land[1]-=1
             this.x=Math.round(this.land[0]-fieldInfo[this.field].x)
             this.z=Math.round(this.land[2]-fieldInfo[this.field].z)
@@ -17674,7 +17680,7 @@ function BeeSwarmSimulator(DATA){
             this.center=[params.x,params.z]
             this.field=params.field
 
-            while(1){
+            for(let attempt=0;attempt<32;attempt++){
                 
                 let x=Math.round(MATH.random(-8,8))+this.center[0],z=Math.round(MATH.random(-8,8))+this.center[1]
                 
@@ -17686,6 +17692,8 @@ function BeeSwarmSimulator(DATA){
                 }
             }
             
+            this.x=bssSafeFlowerCoordinate(this.x??this.center[0],fieldInfo[this.field].width)
+            this.z=bssSafeFlowerCoordinate(this.z??this.center[1],fieldInfo[this.field].length)
             this.pos=[fieldInfo[this.field].x+this.x,fieldInfo[this.field].y,fieldInfo[this.field].z+this.z]
         }
         
@@ -17889,30 +17897,53 @@ function BeeSwarmSimulator(DATA){
         }
         
         clearComboTriangles(){
+            // Detached triangles finish fading at their original world positions.
             if(this.comboTriangles){
-                for(const t of this.comboTriangles)t.splice=true
+                for(const t of this.comboTriangles)t.comboRetired=true
                 this.comboTriangles=null
             }
         }
 
         drawComboTriangles(){
             const colors=[[1,0.08,0.12,1],[1,1,1,1],[0.08,0.45,1,1]]
-            if(!this.comboTriangles)this.comboTriangles=Array.from({length:12},(_,i)=>new TrailRenderer.Trail({length:2,size:1,color:colors[i%3]}))
-            for(let i=0;i<this.comboTriangles.length;i++){
-                const t=this.comboTriangles[i],lane=i%3,step=Math.floor(i/3)
+            if(!this.comboTriangles){
+                this.comboTriangleCursor=0
+                this.comboTriangleTimer=0
+                this.comboTriangles=Array.from({length:24},(_,i)=>{
+                    const t=new TrailRenderer.Trail({length:2,size:1,color:colors[i%3]})
+                    t.comboLife=0
+                    const render=t.render
+                    t.render=function(){
+                        this.comboLife=Math.max(0,this.comboLife-dt)
+                        if(this.comboRetired&&this.comboLife===0){
+                            this.splice=true
+                            gl.deleteBuffer(this.vertBuffer)
+                            gl.deleteBuffer(this.indexBuffer)
+                            return
+                        }
+                        if(this.comboLife===0)return
+                        for(let v=0;v<4;v++)this.verts[v*7+6]=this.comboLife/0.55
+                        render.call(this)
+                    }
+                    return t
+                })
+            }
+            this.comboTriangleTimer-=dt
+            if(this.comboTriangleTimer>0)return
+            this.comboTriangleTimer=0.075
+            for(let lane=0;lane<3;lane++){
+                const t=this.comboTriangles[this.comboTriangleCursor]
+                this.comboTriangleCursor=(this.comboTriangleCursor+1)%this.comboTriangles.length
                 const angle=lane*MATH.TWO_PI/3+this.glow*1.8
-                const r=0.65+step*0.18,half=0.65+step*0.13
-                const x=this.pos[0]+Math.cos(angle)*r,z=this.pos[2]+Math.sin(angle)*r
-                const y=this.y+1.6+step*1.65
-                // Downward-pointing triangle follows the falling coconut.
-                const dx=Math.cos(angle)*half,dz=Math.sin(angle)*half
+                const x=this.pos[0]+Math.cos(angle)*0.85,z=this.pos[2]+Math.sin(angle)*0.85
+                const y=this.y+1.2,dx=Math.cos(angle)*0.7,dz=Math.sin(angle)*0.7
                 const points=[[x,y-0.8,z],[x,y-0.8,z],[x-dx,y+0.8,z-dz],[x+dx,y+0.8,z+dz]]
-                for(let v=0;v<4;v++)t.verts.set([...points[v],...colors[lane].slice(0,3),1-step*0.16],v*7)
+                for(let v=0;v<4;v++)t.verts.set([...points[v],...colors[lane]],v*7)
+                t.comboLife=0.55
             }
         }
 
         die(index){
-            this.clearComboTriangles()
             // Original coconut thud, once per landing.
             const caughtForAudio=!this.isBigFatBully&&vec3.sqrDist(this.pos,[player.body.position.x,player.body.position.y,player.body.position.z])<=this.displaySize
             if(!(this.combo&&caughtForAudio)&&(player.fieldIn===this.field||vec3.sqrDist(this.pos,[player.body.position.x,player.body.position.y,player.body.position.z])<=1600))gameAudio.effect(caughtForAudio?'coconutCatch':'coconutImpact')
@@ -17987,6 +18018,8 @@ function BeeSwarmSimulator(DATA){
                         this.x=next.x;this.z=next.z
                         this.pos=[f.x+this.x,f.y+0.51,f.z+this.z]
                         this.y=this.pos[1]+25;this.vel=0;this.glow=0;this.delay=bssCoconutComboDelay(this.combo.kicks)
+                        // Reuse the pool; existing triangles fade where they were emitted.
+                        this.comboTriangleTimer=0
                         return
                     }
                 }else if(this.combo.kicks){
@@ -17994,6 +18027,7 @@ function BeeSwarmSimulator(DATA){
                 }
             }
             if(this.combo&&player.bssCoconutJuggle){player.bssCoconutJuggle.active=false;gameAudio.setComboActive(false)}
+            this.clearComboTriangles()
             objects.mobs.splice(index,1)
         }
 
@@ -30295,7 +30329,16 @@ function BeeSwarmSimulator(DATA){
         let T4=new out.ConstantTrail({length:12,size:0.1,triangle:true,color:[0,0,1,1]})
         
         out.render=function(){
+            out.trails=out.trails.filter(t=>!t.splice)
             if(!graphics.settings.trails){
+                for(const t of out.trails)if(t.comboLife!==undefined){
+                    t.comboLife=Math.max(0,t.comboLife-dt)
+                    if(t.comboRetired&&t.comboLife===0){
+                        t.splice=true
+                        gl.deleteBuffer(t.vertBuffer)
+                        gl.deleteBuffer(t.indexBuffer)
+                    }
+                }
                 out.trails=out.trails.filter(t=>!t.splice)
                 const before=out.constantTrails.length
                 out.constantTrails=out.constantTrails.filter(t=>!t.splice)
@@ -36077,3 +36120,8 @@ function bssMountToolbarControl(panel,label){
 }
 
 console.info('BSS build: scythe-size-v5');
+
+// Always finish position selection, even after leaving a field or invalid input.
+function bssSafeFlowerCoordinate(value,size){
+    return Math.max(0,Math.min(Math.max(0,Math.floor(size)-1),Number.isFinite(value)?Math.round(value):0))
+}
