@@ -21357,6 +21357,24 @@ function BeeSwarmSimulator(DATA){
                 for(let i=0;i<points.length;i++){const j=(i+1)%points.length;triangle(layers[0][i],layers[0][j],layers[1][j]);triangle(layers[0][i],layers[1][j],layers[1][i])}
             }
 
+            // Extruded triangular accents shared by the belt's avatar, shop and icon.
+            if(!this.isStatic)addBox.bssCoconutTriangle=function(points,depth,color){
+                const layers=[points.map(p=>[p[0],p[1],p[2]-depth/2]),points.map(p=>[p[0],p[1],p[2]+depth/2])]
+                const face=(a,b,c)=>{
+                    const normal=vec3.normalize([],vec3.cross([],vec3.sub([],b,a),vec3.sub([],c,a)))
+                    const base=verts.length/9
+                    for(const p of [a,b,c])verts.push(...vec3.transformMat4([],p,DIS.matrix),...color,...normal)
+                    index.push(base,base+1,base+2)
+                }
+                face(layers[0][2],layers[0][1],layers[0][0])
+                face(layers[1][0],layers[1][1],layers[1][2])
+                for(let i=0;i<3;i++){
+                    const j=(i+1)%3
+                    face(layers[0][i],layers[0][j],layers[1][j])
+                    face(layers[0][i],layers[1][j],layers[1][i])
+                }
+            }
+
             func(addBox,addHiveSlot,addCylinder,addSphere,applyFinalRotation,addGiftedRing,addStar,addLimbBox,addLimbCylinder)
             this.setMesh(verts,index)
         }
@@ -36000,19 +36018,38 @@ function registerBssCoconutBelt(gear){
     return gear.belt.coconutBelt
 }
 
-// Open waist strap with a coconut cross-section buckle, shared by shop and avatar.
+// Reference-style coconut belt: whole coconuts and raised tricolor fins.
 function drawBssCoconutBelt(box,cylinder,sphere){
-    const brown=[0.32,0.18,0.07],cream=[0.95,0.9,0.72]
-    box(0,-0.1,-0.27,0.86,0.13,0.07,false,brown)
-    box(-0.43,-0.1,0,0.07,0.13,0.54,false,brown)
-    box(0.43,-0.1,0,0.07,0.13,0.54,false,brown)
-    box(-0.27,-0.1,0.28,0.34,0.13,0.07,false,cream)
-    box(0.27,-0.1,0.28,0.34,0.13,0.07,false,cream)
-    box(-0.29,-0.1,0.325,0.25,0.055,0.025,false,[0.85,0.06,0.04])
-    box(0.29,-0.1,0.325,0.25,0.055,0.025,false,[0.08,0.28,0.85])
-    cylinder(0,-0.1,0.34,0.215,0.11,16,0.32,0.18,0.07,1,0,0,0,0.215)
-    cylinder(0,-0.1,0.403,0.178,0.025,16,0.97,0.95,0.84,1,0,0,0,0.178)
-    cylinder(0,-0.1,0.42,0.102,0.012,16,0.52,0.32,0.13,1,0,0,0,0.102)
+    const brown=[0.34,0.25,0.15],white=[0.91,0.94,0.91]
+    // Narrow strap sits behind the round coconut pieces.
+    box(0,-0.1,-0.22,0.75,0.11,0.07,false,brown)
+    for(const side of [-1,1])box(side*0.34,-0.1,0.015,0.065,0.11,0.48,false,brown)
+    const coconut=(x,y,z,r,color)=>{
+        sphere(x,y,z,r,2,...color)
+        for(const [dx,dy] of [[-0.24,0.18],[0.24,0.18],[0,-0.26]]){
+            const px=dx*r,py=dy*r,pz=Math.sqrt(r*r-px*px-py*py)
+            // Dark rims and three ivory eyes on the visible face.
+            sphere(x+px,y+py,z+pz,r*0.18,1,0.13,0.12,0.09)
+            sphere(x+px,y+py,z+pz+r*0.024,r*0.145,1,1,1,0.97)
+        }
+    }
+    coconut(-0.33,-0.06,0.025,0.16,brown)
+    coconut(0.33,-0.06,0.025,0.16,brown)
+    coconut(-0.275,-0.11,0.235,0.18,white)
+    coconut(0.275,-0.11,0.235,0.18,white)
+    coconut(0,-0.12,0.365,0.245,brown)
+    const fin=(points,edge,fill)=>{
+        if(!box.bssCoconutTriangle)return
+        // Keep front caps facing outward for back-face culling.
+        if((points[1][0]-points[0][0])*(points[2][1]-points[0][1])-(points[1][1]-points[0][1])*(points[2][0]-points[0][0])<0)points=[points[0],points[2],points[1]]
+        box.bssCoconutTriangle(points,0.055,edge)
+        const center=points.reduce((v,p)=>v.map((n,i)=>n+p[i]/3),[0,0,0])
+        box.bssCoconutTriangle(points.map(p=>[center[0]+(p[0]-center[0])*0.80,center[1]+(p[1]-center[1])*0.80,p[2]+0.033]),0.012,fill)
+    }
+    fin([[-0.49,0.22,0.39],[-0.16,0.10,0.48],[-0.29,-0.10,0.49]],[1,0.32,0.32],[0.93,0.01,0.06])
+    fin([[0.32,0.12,0.35],[0.52,0.20,0.24],[0.38,-0.07,0.39]],[1,0.28,0.18],[1,0.045,0.02])
+    fin([[0.18,-0.14,0.58],[0.53,-0.14,0.40],[0.17,-0.36,0.58]],[0.02,0.72,1],[0.015,0.035,0.67])
+    fin([[-0.53,-0.10,0.31],[-0.37,-0.14,0.40],[-0.38,-0.28,0.40]],[0.05,0.28,1],[0.01,0.025,0.64])
 }
 
 // BSS audible Coconut Combo mix v6: normalized clips and temporary audio ducking.
