@@ -21357,6 +21357,32 @@ function BeeSwarmSimulator(DATA){
                 for(let i=0;i<points.length;i++){const j=(i+1)%points.length;triangle(layers[0][i],layers[0][j],layers[1][j]);triangle(layers[0][i],layers[1][j],layers[1][i])}
             }
 
+            // Closed helmet cylinder with shared ring vertices and complete caps.
+            if(!this.isStatic)addBox.bssDemonShell=function(y,radius,height,color){
+                const n=32,base=verts.length/9
+                for(let ring=0;ring<2;ring++)for(let i=0;i<n;i++){
+                    const angle=i*Math.PI*2/n,x=Math.cos(angle),z=Math.sin(angle)
+                    verts.push(...vec3.transformMat4([],[x*radius,y+(ring?1:-1)*height/2,z*radius],DIS.matrix),...color,x,0,z)
+                }
+                for(let i=0;i<n;i++){
+                    const j=(i+1)%n,a=base+i,b=base+j,c=base+n+i,d=base+n+j
+                    index.push(a,c,b,b,c,d)
+                }
+                // Separate cap vertices preserve crisp rim shading.
+                for(const top of [false,true]){
+                    const center=verts.length/9,ny=top?1:-1
+                    verts.push(...vec3.transformMat4([],[0,y+ny*height/2,0],DIS.matrix),...color,0,ny,0)
+                    for(let i=0;i<n;i++){
+                        const angle=i*Math.PI*2/n
+                        verts.push(...vec3.transformMat4([],[Math.cos(angle)*radius,y+ny*height/2,Math.sin(angle)*radius],DIS.matrix),...color,0,ny,0)
+                    }
+                    for(let i=0;i<n;i++){
+                        const a=center+1+i,b=center+1+(i+1)%n
+                        if(top)index.push(center,b,a);else index.push(center,a,b)
+                    }
+                }
+            }
+
             // Extruded triangular accents shared by the belt's avatar, shop and icon.
             if(!this.isStatic)addBox.bssCoconutTriangle=function(points,depth,color){
                 const layers=[points.map(p=>[p[0],p[1],p[2]-depth/2]),points.map(p=>[p[0],p[1],p[2]+depth/2])]
@@ -36037,8 +36063,9 @@ function drawBssCoconutBelt(box,cylinder,sphere){
     coconut(0.33,-0.06,0.025,0.16,brown)
     coconut(-0.275,-0.11,0.235,0.18,white)
     coconut(0.275,-0.11,0.235,0.18,white)
-    coconut(0,-0.12,0.365,0.245,brown)
+    coconut(0,-0.12,0.29,0.245,brown)
     const fin=(points,edge,fill)=>{
+        points=points.map(p=>[p[0],p[1],0.555])
         if(!box.bssCoconutTriangle)return
         // Keep front caps facing outward for back-face culling.
         if((points[1][0]-points[0][0])*(points[2][1]-points[0][1])-(points[1][1]-points[0][1])*(points[2][0]-points[0][0])<0)points=[points[0],points[2],points[1]]
