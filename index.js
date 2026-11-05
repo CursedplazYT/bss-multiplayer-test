@@ -21803,7 +21803,7 @@ function BeeSwarmSimulator(DATA){
     }
     function bssAvatarGripOffset(tool){
         const old=tool==='darkScythe'?vec3.transformQuat([],[-0.55,0.55,0.55],quat.fromEuler([],0,0,30)):[-0.4,0,0.4]
-        return [-0.43-old[0],0.04-old[1],0.28-old[2]]
+        return [-0.43-old[0],-0.06-old[1],0.42-old[2]]
     }
     function drawBssGripArm(bodyMatrix,toolMatrix,tool,walking=0,phase=TIME*11){
         const shoulder=vec3.transformMat4([],[-0.43,0.24,0],bodyMatrix)
@@ -21821,8 +21821,8 @@ function BeeSwarmSimulator(DATA){
         const free=mat4.clone(bodyMatrix)
         mat4.translate(free,free,[0.45,0.30,0])
         mat4.rotateX(free,free,Math.sin(phase)*0.26*walking)
-        mat4.translate(free,free,[0,-0.24,0])
-        mat4.scale(free,free,[1,0.48,1.25])
+        mat4.translate(free,free,[0,-0.36,0])
+        mat4.scale(free,free,[1,0.72,1.25])
         gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,free)
         bssGripArmMesh.render()
     }
@@ -22310,8 +22310,14 @@ function BeeSwarmSimulator(DATA){
                 const black=[0.025,0.022,0.03]
                 shape([[480,20],[401,198],[526,128],[428,224],[443,240],[436,252],[454,306],[448,312],[468,365],[451,373],[415,319],[408,310],[404,314],[390,274],[380,263],[344,263],[282,292],[243,320],[224,354],[205,436],[195,340],[207,312],[225,290],[352,222],[360,185]],0.17,black)
                 shape([[381,248],[390,273],[343,284],[291,312],[254,348],[231,396],[213,457],[211,390],[218,349],[237,317],[281,290],[348,252]],0.19,[0.66,0.018,0.035])
-                shape([[451,369],[466,362],[508,450],[493,459]],0.15,[0.26,0.025,0.39])
-                shape([[493,459],[508,450],[529,479],[554,534],[518,507],[490,470]],0.18,[0.37,0.02,0.51])
+                // Shorten only the shaft along its axis, preserving its width and blade.
+                const handle=(outline,thickness,color)=>shape(outline.map(([u,v])=>{
+                    const dx=57/Math.hypot(57,81),dy=81/Math.hypot(57,81)
+                    const along=(u-460)*dx+(v-370)*dy
+                    return [u-along*0.60*dx,v-along*0.60*dy]
+                }),thickness,color)
+                handle([[451,369],[466,362],[508,450],[493,459]],0.15,[0.26,0.025,0.39])
+                handle([[493,459],[508,450],[529,479],[554,534],[518,507],[490,470]],0.18,[0.37,0.02,0.51])
             },
             ability:function(arr){
                 
