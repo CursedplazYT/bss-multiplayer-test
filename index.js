@@ -21623,7 +21623,7 @@ function BeeSwarmSimulator(DATA){
                 if(a.signature!==signature){
                     for(const m of [a.body,a.tool]){gl.deleteBuffer(m.mesh.buffers.verts);gl.deleteBuffer(m.mesh.buffers.index)}
                     a.body.setMeshFromFunction((box,h,cylinder,sphere,rot,g,star)=>{
-                        box(0,0,0,0.5,1,0.5,false,[1.45,1.45,1])
+                        cylinder(0,0,0,0.11,1,20,1.45,1.45,1,90,0,0)
                         for(const [slot,name] of Object.entries(peer.state.gear)){
                             if(['tool','sprinkler','glider','parachute','beequips'].includes(slot)||slot.includes('Amulet'))continue
                             const item=gear[slot]&&gear[slot][name]
@@ -21640,7 +21640,10 @@ function BeeSwarmSimulator(DATA){
                 for(let i=0;i<3;i++)a.position[i]+=(peer.state.position[i]-a.position[i])*blend
                 const matrix=mat4.fromRotationTranslation([],peer.state.rotation,a.position)
                 gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,matrix)
-                a.body.render();a.tool.render()
+                const bodyMatrix=mat4.clone(matrix)
+                mat4.translate(bodyMatrix,bodyMatrix,[0,0.2,0]);mat4.scale(bodyMatrix,bodyMatrix,[1,1.4,1])
+                gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,bodyMatrix);a.body.render()
+                gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,matrix);a.tool.render()
             }
         }
     })
@@ -25577,7 +25580,7 @@ function BeeSwarmSimulator(DATA){
 
             playerMesh.setMeshFromFunction(function(box,a,cylinder,sphere,applyFinalRotation,c,star){
 
-                box(0,0,0,0.5,1,0.5,false,[1.45,1.45,1])
+                cylinder(0,0,0,0.11,1,20,1.45,1.45,1,90,0,0)
                 
                 //eeeeeeeeeeeeeeeeeeeeee
                 // box(0,0,0,3,0.1,3,false,[0,2,0])
@@ -26803,10 +26806,11 @@ function BeeSwarmSimulator(DATA){
             
             out.toolRot+=dt*10
             
-            // Twelve percent taller visually, with the feet kept at ground level.
+            // Body is 25 percent taller than the previous 1.12 visual scale.
             out.modelMatrix[13]+=0.06
             mat4.copy(out.toolMatrix,out.modelMatrix)
-            mat4.scale(out.modelMatrix,out.modelMatrix,[1,1.12,1])
+            out.modelMatrix[13]+=0.14
+            mat4.scale(out.modelMatrix,out.modelMatrix,[1,1.4,1])
             mat4.rotateX(out.toolMatrix,out.toolMatrix,Math.max(0,(-Math.abs(out.toolRot-2)+2)*MATH.QUATER_PI))
             
             if(out.viewMatrixToChange){
