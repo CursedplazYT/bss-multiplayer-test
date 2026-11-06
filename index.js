@@ -36079,12 +36079,12 @@ function bssCoconutBeltPollenMultiplier(player,field,bee){
 function bssCoconutCatchRate(catches){
     return 1+Math.min(1,Math.max(0,Number(catches)||0)*0.01)
 }
-// Increase speed 2% per catch, retaining a 2x ceiling to avoid runaway falls.
+// Compound fall speed and warning duration by 5% per catch, without a speed cap.
 function bssCoconutFallRate(catches){
-    return Math.min(2,Math.pow(1.02,Math.max(0,Number(catches)||0)))
+    return Math.pow(1.05,Math.max(0,Number(catches)||0))
 }
 function bssCoconutPreFallWarning(catches){
-    return 0.75*Math.pow(0.98,Math.max(0,Number(catches)||0))
+    return 0.5*Math.pow(0.95,Math.max(0,Number(catches)||0))
 }
 function bssCoconutComboDelay(catches){
     return Math.max(bssCoconutPreFallWarning(catches)+0.05,3*Math.pow(0.88,Math.max(0,(Number(catches)||1)-1)))
