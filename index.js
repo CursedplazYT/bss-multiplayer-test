@@ -477,6 +477,7 @@ function BeeSwarmSimulator(DATA){
         
         player.setProjectionMatrix(player.fov,aspect,0.1,275)
         
+        for(const program of [staticGeometryProgram,dynamicGeometryProgram,tokenGeometryProgram,flowerGeometryProgram,beeGeometryProgram,particleRendererProgram,explosionRendererProgram,textRendererProgram,mobRendererProgram,trailRendererProgram])if(program)gl.deleteProgram(program)
         staticGeometryProgram=createProgram('static_geometry_vsh','static_geometry_fsh')
         dynamicGeometryProgram=createProgram('dynamic_geometry_vsh','dynamic_geometry_fsh')
         tokenGeometryProgram=createProgram('token_geometry_vsh','token_geometry_fsh')
@@ -12636,6 +12637,7 @@ function BeeSwarmSimulator(DATA){
         }
         
         die(index){
+            mpFreeMesh(this.mesh)
             gameAudio.effect('triangulateEnd')
             
             let px=Math.round(player.body.position.x-fieldInfo[this.field].x),
@@ -14534,6 +14536,7 @@ function BeeSwarmSimulator(DATA){
         }
         
         die(){
+            mpFreeMesh(this.mesh)
             
             player.addMessage('Stick Bug Challenge over!'+MATH.doGrammar(this.field)+'! ⚠',[80,40,20])
             player.addMessage(stickbugScore.innerHTML,[80,40,20])
@@ -20232,6 +20235,8 @@ function BeeSwarmSimulator(DATA){
         gl.attachShader(p,vsh)
         gl.attachShader(p,fsh)
         gl.linkProgram(p)
+        gl.detachShader(p,vsh);gl.detachShader(p,fsh)
+        gl.deleteShader(vsh);gl.deleteShader(fsh)
         
         return p
     }
@@ -25755,7 +25760,8 @@ function BeeSwarmSimulator(DATA){
             if(!merelyAGliderStateChange){
                 
                 out.sprinklers=[]
-                out.sprinklerMesh=new Mesh(true)
+                if(!out.sprinklerMesh)out.sprinklerMesh=new Mesh(true)
+                out.sprinklerMesh.setMeshFromFunction(()=>{})
                 out.sprinklerMesh.setBuffers()
                 out.currentSprinkler=0
 
@@ -30262,6 +30268,10 @@ function BeeSwarmSimulator(DATA){
 
     let TrailRenderer=(function(out){
         
+        function retireTrail(trail){
+            if(trail.vertBuffer){gl.deleteBuffer(trail.vertBuffer);trail.vertBuffer=null}
+            if(trail.indexBuffer){gl.deleteBuffer(trail.indexBuffer);trail.indexBuffer=null}
+        }
         out.trails=[]
         out.constantTrails=[]
         
@@ -30720,17 +30730,16 @@ function BeeSwarmSimulator(DATA){
         let T4=new out.ConstantTrail({length:12,size:0.1,triangle:true,color:[0,0,1,1]})
         
         out.render=function(){
-            out.trails=out.trails.filter(t=>!t.splice)
+            out.trails=out.trails.filter(t=>{if(t.splice){retireTrail(t);return false}return true})
             if(!graphics.settings.trails&&!(graphics.settings.comboParticles>0&&out.trails.some(t=>t.comboLife!==undefined))){
                 for(const t of out.trails)if(t.comboLife!==undefined){
                     t.comboLife=Math.max(0,t.comboLife-dt)
                     if(t.comboRetired&&t.comboLife===0){
                         t.splice=true
-                        gl.deleteBuffer(t.vertBuffer)
-                        gl.deleteBuffer(t.indexBuffer)
+                        retireTrail(t)
                     }
                 }
-                out.trails=out.trails.filter(t=>!t.splice)
+                out.trails=out.trails.filter(t=>{if(t.splice){retireTrail(t);return false}return true})
                 const before=out.constantTrails.length
                 out.constantTrails=out.constantTrails.filter(t=>!t.splice)
                 if(before!==out.constantTrails.length)out.regenerateConstantTrails()
@@ -30761,6 +30770,7 @@ function BeeSwarmSimulator(DATA){
                 
                 if(out.trails[i].splice){
                     
+                    retireTrail(out.trails[i])
                     out.trails.splice(i,1)
                 }
             }
