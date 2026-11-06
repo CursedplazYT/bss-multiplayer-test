@@ -36079,9 +36079,9 @@ function bssCoconutBeltPollenMultiplier(player,field,bee){
 function bssCoconutCatchRate(catches){
     return 1+Math.min(1,Math.max(0,Number(catches)||0)*0.01)
 }
-// Fall speed stops increasing at five catches; warning time keeps shrinking.
+// Fall speed stops increasing at six catches; warning time keeps shrinking.
 function bssCoconutFallRate(catches){
-    return Math.pow(1.15,Math.min(5,Math.max(0,Number(catches)||0)))
+    return Math.pow(1.15,Math.min(6,Math.max(0,Number(catches)||0)))
 }
 function bssCoconutPreFallWarning(catches){
     return 0.5*Math.pow(0.85,Math.max(0,Number(catches)||0))
