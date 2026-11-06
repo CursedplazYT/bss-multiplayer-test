@@ -17913,6 +17913,7 @@ function BeeSwarmSimulator(DATA){
         }
 
         drawComboTriangles(){
+            if(graphics.settings.comboParticles<=0)return
             const colors=[[1,0.08,0.12,1],[1,1,1,1],[0.08,0.45,1,1]]
             if(!this.comboTriangles){
                 this.comboTriangleCursor=0
@@ -17929,8 +17930,8 @@ function BeeSwarmSimulator(DATA){
                             gl.deleteBuffer(this.indexBuffer)
                             return
                         }
-                        if(this.comboLife===0)return
-                        for(let v=0;v<4;v++)this.verts[v*7+6]=this.comboLife/0.55
+                        if(this.comboLife===0||graphics.settings.comboParticles<=0)return
+                        for(let v=0;v<4;v++)this.verts[v*7+6]=this.comboLife/0.55*graphics.settings.comboParticles
                         render.call(this)
                     }
                     return t
@@ -18049,19 +18050,23 @@ function BeeSwarmSimulator(DATA){
                 
             } else {
                 
-                const fallSpeed=this.combo?bssCoconutFallRate(this.combo.kicks):1
-                // Square acceleration so fall duration scales inversely with speed.
-                this.vel-=dt*20*fallSpeed*fallSpeed
+                this.vel-=dt*20
+                if(this.combo)this.vel=Math.max(-24,this.vel) // Fixed terminal speed, regardless of combo.
                 this.glow+=dt
                 this.y+=this.vel*dt
                 
                 if(this.combo){
                     this.drawComboTriangles()
-                    const pulse=1+Math.sin(this.glow*8)*0.08
-                    meshes.cylinder_explosions.instanceData.push(this.pos[0],this.pos[1]-0.015,this.pos[2],1,1,1,0.65,this.displaySize*1.2*pulse,0.001)
-                    meshes.cylinder_explosions.instanceData.push(this.pos[0],this.pos[1],this.pos[2],0.1,0.5,1,0.8,this.displaySize,0.001)
-                    if(!this.combo.kicks)meshes.cylinder_explosions.instanceData.push(this.pos[0],this.pos[1]+0.015,this.pos[2],0.3,0.85,1,0.9,0.8,0.001)
-                    textRenderer.addSingle('COCONUT COMBO x'+this.combo.stacks,[this.pos[0],this.pos[1]+2,this.pos[2]],COLORS.whiteArr,0,false,false,0,0.85)
+                    // Hide the target until the warning window opens; difficulty
+                    // comes from less warning, never an uncontrollably fast fall.
+                    const remaining=bssCoconutLandingTime(this.y+this.displaySize-this.pos[1],-this.vel)
+                    if(remaining<=bssCoconutWarningWindow(this.combo.kicks)){
+                        const diameter=2*Math.sqrt(this.displaySize),pulse=1+Math.sin(this.glow*12)*0.05
+                        meshes.cylinder_explosions.instanceData.push(this.pos[0],this.pos[1]+0.01,this.pos[2],1,1,1,1,diameter*1.08*pulse,0.08)
+                        meshes.cylinder_explosions.instanceData.push(this.pos[0],this.pos[1]+0.06,this.pos[2],0.02,0.55,1,1,diameter,0.10)
+                        meshes.cylinder_explosions.instanceData.push(this.pos[0],this.pos[1]+0.13,this.pos[2],1,0.85,0,1,0.45,0.20)
+                        textRenderer.addSingle('CATCH HERE  '+remaining.toFixed(1)+'s',[this.pos[0],this.pos[1]+2,this.pos[2]],COLORS.whiteArr,0,false,false,0,1.15)
+                    }
                 }else{
                 meshes.cylinder_explosions.instanceData.push(this.pos[0],this.pos[1],this.pos[2],this.isBigFatBully?1:0,this.isBigFatBully?0:1,0,this.glow*0.75,this.displaySize,0.001)
                 }
@@ -18238,7 +18243,7 @@ function BeeSwarmSimulator(DATA){
                 
                 this.timer=0.15
                 
-                ParticleRenderer.add({x:this.pos[0]+MATH.random(-1.5,1.5),y:this.pos[1]-0.75,z:this.pos[2]+MATH.random(-1.5,1.5),vx:0,vy:-6,vz:0,grav:-7,size:MATH.random(30,60),col:[0.6,0.6,0.7],life:0.75,rotVel:MATH.random(-6,6),alpha:25})
+                if(graphics.settings.showCloudWind)ParticleRenderer.add({x:this.pos[0]+MATH.random(-1.5,1.5),y:this.pos[1]-0.75,z:this.pos[2]+MATH.random(-1.5,1.5),vx:0,vy:-6,vz:0,grav:-7,size:MATH.random(30,60),col:[0.6,0.6,0.7],life:0.75,rotVel:MATH.random(-6,6),alpha:25})
                 
                 if(player.fieldIn===this.field){
                     
@@ -18273,6 +18278,7 @@ function BeeSwarmSimulator(DATA){
                 }
             }
             
+            if(graphics.settings.showCloudWind){
             let c=0.7*player.isNight
             
             meshes.explosions.instanceData.push(this.pos[0]-0.45,this.pos[1],this.pos[2],c,c,c,0.8,2.1,0.9)
@@ -18280,6 +18286,7 @@ function BeeSwarmSimulator(DATA){
             meshes.explosions.instanceData.push(this.pos[0]-0.5,this.pos[1],this.pos[2]-0.8,c,c,c,0.8,1.9,0.9)
             meshes.explosions.instanceData.push(this.pos[0]+0.75,this.pos[1],this.pos[2]-0.3,c,c,c,0.8,2.2,0.9)
             
+            }
             if(Math.abs(this.pos[0]-this.moveTo[0])+Math.abs(this.pos[2]-this.moveTo[1])<1){
                 
                 this.flowerTo=this.moveTo.slice()
@@ -18408,6 +18415,7 @@ function BeeSwarmSimulator(DATA){
                 }
             }
             
+            if(graphics.settings.showCloudWind){
             gl.bindBuffer(gl.ARRAY_BUFFER,meshes.tornado.vertBuffer)
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,meshes.tornado.indexBuffer)
             gl.vertexAttribPointer(glCache.mob_vertPos,3,gl.FLOAT,gl.FALSE,24,0)
@@ -18417,6 +18425,7 @@ function BeeSwarmSimulator(DATA){
             gl.uniform2f(glCache.mob_instanceInfo2,0.65,0.7)
             gl.drawElements(gl.TRIANGLES,meshes.tornado.indexAmount,gl.UNSIGNED_SHORT,0)
             
+            }
             return this.life<=0
         }
     }
@@ -29368,10 +29377,8 @@ function BeeSwarmSimulator(DATA){
             
             if(player.pointerLocked){
                 
-                player.yaw+=e.movementX*player.sensitivity
-                player.pitch=MATH.constrain(player.pitch-e.movementY*player.sensitivity,-MATH.HALF_PI,MATH.HALF_PI)
-                
-                player.raycastCameraClipping()
+                if(player.bssSkipNextMouseMove){player.bssSkipNextMouseMove=false;return}
+                if(bssApplyCameraMouse(player,e.movementX,e.movementY))player.raycastCameraClipping()
             }
         }
         let touchStart=[0,0]
@@ -30479,7 +30486,7 @@ function BeeSwarmSimulator(DATA){
         
         out.render=function(){
             out.trails=out.trails.filter(t=>!t.splice)
-            if(!graphics.settings.trails){
+            if(!graphics.settings.trails&&!(graphics.settings.comboParticles>0&&out.trails.some(t=>t.comboLife!==undefined))){
                 for(const t of out.trails)if(t.comboLife!==undefined){
                     t.comboLife=Math.max(0,t.comboLife-dt)
                     if(t.comboRetired&&t.comboLife===0){
@@ -30515,7 +30522,7 @@ function BeeSwarmSimulator(DATA){
             
             for(let i in out.trails){
                 
-                out.trails[i].render()
+                if(graphics.settings.trails||out.trails[i].comboLife!==undefined)out.trails[i].render()
                 
                 if(out.trails[i].splice){
                     
@@ -30523,6 +30530,7 @@ function BeeSwarmSimulator(DATA){
                 }
             }
             
+            if(!graphics.settings.trails)return
             for(let i in out.constantTrails){
                 
                 out.constantTrails[i].render()
@@ -34570,6 +34578,7 @@ function BeeSwarmSimulator(DATA){
     document.addEventListener('pointerlockchange',function(e){
         
         player.pointerLocked=document.pointerLockElement===uiCanvas
+        player.bssSkipNextMouseMove=true
         
     },false)
 
@@ -35819,17 +35828,17 @@ function createBssAudio(){
 
 function createBssGraphics(){
     if(window.bssGraphics)return window.bssGraphics
-    const defaults={flames:1,particles:1,hideSpicyBees:false,explosions:true,trails:true,pollenText:true,showBubbles:true,showGlitches:true,starOpacity:1,dupeOpacity:1,scale:1}
+    const defaults={comboParticles:1,showCloudWind:true,flames:1,particles:1,hideSpicyBees:false,explosions:true,trails:true,pollenText:true,showBubbles:true,showGlitches:true,starOpacity:1,dupeOpacity:1,scale:1}
     let settings={...defaults},changed=()=>{},accumulator={flame:0,other:0}
     try{Object.assign(settings,JSON.parse(localStorage.getItem('bss-mp-graphics-settings')||'{}'))}catch(e){}
-    for(const key of ['flames','particles','scale','starOpacity','dupeOpacity']){
+    for(const key of ['flames','particles','scale','starOpacity','dupeOpacity','comboParticles']){
         const n=Number(settings[key]);settings[key]=Number.isFinite(n)?Math.max(key==='scale'?0.4:0,Math.min(1,n)):defaults[key]
     }
-    for(const key of ['hideSpicyBees','explosions','trails','pollenText','showBubbles','showGlitches'])settings[key]=typeof settings[key]==='boolean'?settings[key]:defaults[key]
+    for(const key of ['hideSpicyBees','explosions','trails','pollenText','showBubbles','showGlitches','showCloudWind'])settings[key]=typeof settings[key]==='boolean'?settings[key]:defaults[key]
     const panel=document.createElement('details')
     panel.id='bss-graphics-controls'
     panel.style.cssText='position:fixed;bottom:56px;right:12px;z-index:100001;background:#edf5ff;color:#18283e;border:2px solid #55739b;border-radius:10px;padding:8px;font:14px Arial;max-width:290px;max-height:70vh;overflow:auto;box-shadow:0 2px 10px #0004;user-select:auto'
-    panel.innerHTML='<summary style="cursor:pointer">Graphics</summary><div style="display:grid;gap:9px;padding-top:10px"><button data-low type="button" style="width:auto;height:auto;padding:6px">Chromebook preset</button><button data-reset type="button" style="width:auto;height:auto;padding:6px">Full graphics</button><label>Flame particles <output data-flames-value></output><input data-flames type="range" min="0" max="1" step="0.05" style="width:100%"></label><label>Other particles <output data-particles-value></output><input data-particles type="range" min="0" max="1" step="0.05" style="width:100%"></label><label>SSA star opacity <output data-starOpacity-value></output><input data-starOpacity type="range" min="0" max="1" step="0.05" style="width:100%"></label><label>Dupe token opacity <output data-dupeOpacity-value></output><input data-dupeOpacity type="range" min="0" max="1" step="0.05" style="width:100%"></label><label>Render resolution <output data-scale-value></output><input data-scale type="range" min="0.4" max="1" step="0.05" style="width:100%"></label><label><input data-showBubbles type="checkbox" style="height:auto"> Show bubbles</label><label><input data-hideSpicyBees type="checkbox" style="height:auto"> Hide Spicy Bee summons</label><label><input data-explosions type="checkbox" style="height:auto"> Decorative explosions</label><label><input data-trails type="checkbox" style="height:auto"> Trails</label><label><input data-pollenText type="checkbox" style="height:auto"> Floating pollen numbers</label><label><input data-showGlitches type="checkbox" style="height:auto"> Field glitch effects</label><small>Hidden bees and flames still work normally. Lower resolution makes the world less sharp; menus stay sharp. Settings save automatically.</small></div>'
+    panel.innerHTML='<summary style="cursor:pointer">Graphics</summary><div style="display:grid;gap:9px;padding-top:10px"><button data-low type="button" style="width:auto;height:auto;padding:6px">Chromebook preset</button><button data-reset type="button" style="width:auto;height:auto;padding:6px">Full graphics</button><label>Flame particles <output data-flames-value></output><input data-flames type="range" min="0" max="1" step="0.05" style="width:100%"></label><label>Combo coconut trails <output data-comboParticles-value></output><input data-comboParticles type="range" min="0" max="1" step="0.05" style="width:100%"></label><label><input data-showCloudWind type="checkbox" style="height:auto"> Show clouds and wind</label><label>Other particles <output data-particles-value></output><input data-particles type="range" min="0" max="1" step="0.05" style="width:100%"></label><label>SSA star opacity <output data-starOpacity-value></output><input data-starOpacity type="range" min="0" max="1" step="0.05" style="width:100%"></label><label>Dupe token opacity <output data-dupeOpacity-value></output><input data-dupeOpacity type="range" min="0" max="1" step="0.05" style="width:100%"></label><label>Render resolution <output data-scale-value></output><input data-scale type="range" min="0.4" max="1" step="0.05" style="width:100%"></label><label><input data-showBubbles type="checkbox" style="height:auto"> Show bubbles</label><label><input data-hideSpicyBees type="checkbox" style="height:auto"> Hide Spicy Bee summons</label><label><input data-explosions type="checkbox" style="height:auto"> Decorative explosions</label><label><input data-trails type="checkbox" style="height:auto"> Trails</label><label><input data-pollenText type="checkbox" style="height:auto"> Floating pollen numbers</label><label><input data-showGlitches type="checkbox" style="height:auto"> Field glitch effects</label><small>Hidden bees and flames still work normally. Lower resolution makes the world less sharp; menus stay sharp. Settings save automatically.</small></div>'
     document.body.appendChild(panel)
     bssMountToolbarControl(panel,'Graphics')
     const audioPanel=document.getElementById('bss-audio-controls')
@@ -35838,20 +35847,20 @@ function createBssGraphics(){
     for(const event of ['pointerdown','pointerup','click','keydown','keyup','touchstart','touchend'])panel.addEventListener(event,e=>e.stopPropagation())
     function persist(){try{localStorage.setItem('bss-mp-graphics-settings',JSON.stringify(settings))}catch(e){}}
     function refresh(){
-        for(const key of ['flames','particles','scale','starOpacity','dupeOpacity']){
+        for(const key of ['flames','particles','scale','starOpacity','dupeOpacity','comboParticles']){
             panel.querySelector('[data-'+key+']').value=settings[key]
             panel.querySelector('[data-'+key+'-value]').textContent=Math.round(settings[key]*100)+'%'
         }
-        for(const key of ['hideSpicyBees','explosions','trails','pollenText','showBubbles','showGlitches'])panel.querySelector('[data-'+key+']').checked=settings[key]
+        for(const key of ['hideSpicyBees','explosions','trails','pollenText','showBubbles','showGlitches','showCloudWind'])panel.querySelector('[data-'+key+']').checked=settings[key]
     }
     function commit(){accumulator={flame:0,other:0};persist();changed()}
-    for(const key of ['flames','particles','scale','starOpacity','dupeOpacity']){
+    for(const key of ['flames','particles','scale','starOpacity','dupeOpacity','comboParticles']){
         const input=panel.querySelector('[data-'+key+']')
         input.oninput=()=>{panel.querySelector('[data-'+key+'-value]').textContent=Math.round(Number(input.value)*100)+'%';if(key!=='scale'){settings[key]=Number(input.value);commit()}}
         input.onchange=()=>{settings[key]=Number(input.value);commit()}
     }
-    for(const key of ['hideSpicyBees','explosions','trails','pollenText','showBubbles','showGlitches'])panel.querySelector('[data-'+key+']').onchange=e=>{settings[key]=e.target.checked;commit()}
-    panel.querySelector('[data-low]').onclick=()=>{Object.assign(settings,{flames:0.1,particles:0.1,hideSpicyBees:true,explosions:false,trails:false,pollenText:false,showBubbles:false,showGlitches:false,starOpacity:0.35,dupeOpacity:0,scale:0.6});refresh();commit()}
+    for(const key of ['hideSpicyBees','explosions','trails','pollenText','showBubbles','showGlitches','showCloudWind'])panel.querySelector('[data-'+key+']').onchange=e=>{settings[key]=e.target.checked;commit()}
+    panel.querySelector('[data-low]').onclick=()=>{Object.assign(settings,{showCloudWind:false,comboParticles:0,flames:0.1,particles:0.1,hideSpicyBees:true,explosions:false,trails:false,pollenText:false,showBubbles:false,showGlitches:false,starOpacity:0.35,dupeOpacity:0,scale:0.6});refresh();commit()}
     panel.querySelector('[data-reset]').onclick=()=>{Object.assign(settings,defaults);refresh();commit()}
     refresh()
     window.bssGraphics={settings,
@@ -36313,4 +36322,25 @@ function drawBssBlockAvatar(box,cylinder,sphere,mask){
         const x=Math.cos(angle)*0.10,y=0.56-Math.sin(angle)*0.075
         sphere(x,y,Math.sqrt(0.215*0.215-x*x)+0.002,0.023,1,...black)
     }
+}
+
+// Guard pointer-lock transition spikes and avoid the exact vertical camera pole.
+function bssApplyCameraMouse(p,mx,my){
+    if(!Number.isFinite(mx)||!Number.isFinite(my)||Math.abs(mx)>300||Math.abs(my)>300)return false
+    const sensitivity=Number.isFinite(p.sensitivity)?Math.max(0.0001,Math.min(0.05,p.sensitivity)):0.00509
+    let dx=mx*sensitivity,dy=my*sensitivity
+    const magnitude=Math.hypot(dx,dy),scale=magnitude>0.18?0.18/magnitude:1
+    const limit=Math.PI/2-0.01
+    p.yaw=(Number.isFinite(p.yaw)?p.yaw:0)+dx*scale
+    p.pitch=Math.max(-limit,Math.min(limit,(Number.isFinite(p.pitch)?p.pitch:0)-dy*scale))
+    return true
+}
+
+function bssCoconutWarningWindow(catches){
+    return Math.max(0.30,1.4/(1+Math.max(0,Number(catches)||0)*0.12))
+}
+function bssCoconutLandingTime(distance,speed){
+    const h=Math.max(0,distance),v=Math.min(24,Math.max(0,speed))
+    const untilCap=(24-v)/20,capDistance=v*untilCap+10*untilCap*untilCap
+    return h<=capDistance?(Math.sqrt(v*v+40*h)-v)/20:untilCap+(h-capDistance)/24
 }
