@@ -430,6 +430,10 @@ function BeeSwarmSimulator(DATA){
     let gl=glCanvas.getContext('webgl2',{antialias:graphics.settings.antialias,powerPreference:'high-performance'})
 
     let uiCanvas=document.getElementById('ui-canvas')
+    const bssPerf=window.bssPerf=createBssFrameProfiler(()=>{
+        let gpu='Not reported';try{const ext=gl.getExtension('WEBGL_debug_renderer_info');gpu=gl.getParameter(ext?ext.UNMASKED_RENDERER_WEBGL:gl.RENDERER)}catch(e){}
+        return {gpu,resolution:gl.canvas.width+' × '+gl.canvas.height,scale:Math.round(graphics.renderScale()*100)+'%',bees:objects.bees.length,temporaryBees:objects.tempBees.length,mobs:objects.mobs.length,tokens:objects.tokens.length,bubbles:objects.bubbles.length,particles:ParticleRenderer.particles.length,lowMode:graphics.settings.performanceMode,shadows:graphics.settings.shadows,memory:performance.memory?Math.round(performance.memory.usedJSHeapSize/1048576)+' MB JS heap':'Not reported',cores:navigator.hardwareConcurrency||'Not reported'}
+    })
     const bssUploadDynamic=createBssBufferUploader(gl),bssUniformCache=new WeakMap()
     function bssUniform(program,name){
         let cache=bssUniformCache.get(program);if(!cache){cache=new Map();bssUniformCache.set(program,cache)}
@@ -34923,6 +34927,7 @@ function BeeSwarmSimulator(DATA){
 
 
     function loop(now){
+        bssPerf.begin()
         if(now>then)graphics.sampleFrame(now-then)
 
         dt=Math.min((now-then)*0.001,0.07)
@@ -35191,9 +35196,11 @@ function BeeSwarmSimulator(DATA){
         gl.clearColor(...(STORM_SKY_COLOR?STORM_SKY_COLOR:player.skyColor),1)
         gl.clear(16640)
         
+        bssPerf.mark('Stats, fields and shadows')
         player.updatePhysics()
         world.step(dt)
         player.updateCamera()
+        bssPerf.mark('Physics and camera')
         
         gl.useProgram(dynamicGeometryProgram)
         gl.uniformMatrix4fv(glCache.dynamic_viewMatrix,gl.FALSE,player.viewMatrix)
@@ -35379,7 +35386,9 @@ function BeeSwarmSimulator(DATA){
         player.hiveMesh.render()
         mp.hives()
         
+        bssPerf.mark('World and avatar rendering')
         player.updateFields()
+        bssPerf.mark('Field updates')
         gameAudio.tick(player,isBeesmas,triggers,TIME,fieldInfo,mainStarAudio())
         
         gl.useProgram(beeGeometryProgram)
@@ -35419,6 +35428,7 @@ function BeeSwarmSimulator(DATA){
             player.beeWorkPosition=null
         }
 
+        bssPerf.mark('Bee simulation')
         gl.bindTexture(gl.TEXTURE_2D,textures.bees)
         
         gl.bindBuffer(gl.ARRAY_BUFFER,meshes.bee.vertBuffer)
@@ -35507,10 +35517,12 @@ function BeeSwarmSimulator(DATA){
         gl.vertexAttribDivisor(glCache.token_instancePos,0)
         gl.vertexAttribDivisor(glCache.token_instanceUV,0)
         meshes.tokens.instanceData.length=0
+        bssPerf.mark('Bee and token rendering')
         
         ParticleRenderer.render()
         
         TrailRenderer.render()
+        bssPerf.mark('Particles and trails')
         
         player.attacked=[]
 
@@ -35534,6 +35546,7 @@ function BeeSwarmSimulator(DATA){
         }
 
         mp.world()
+        bssPerf.mark('Mobs and shared abilities')
 
         gl.useProgram(explosionRendererProgram)
         
@@ -35622,17 +35635,21 @@ function BeeSwarmSimulator(DATA){
         meshes.explosions.instanceData=player.defense>=1?[player.body.position.x+player.body.velocity.x*dt,player.body.position.y+player.body.velocity.y*dt,player.body.position.z+player.body.velocity.z*dt,0.1,0.05,0,Math.sin(TIME*10)*0.15+0.5,2,1]:[]
         meshes.cylinder_explosions.instanceData.length=0
         
+        bssPerf.mark('Bubbles and effects')
         textRenderer.render(dt,Math.sin(TIME*20))
         
         ctx.drawImage(gl.canvas,0,0,width,height)
         
         textRenderer.draw()
+        bssPerf.mark('Text and canvas copy')
         
         updateBssRates(player)
         updateBssCoconutBeltHud(player,player.viewMatrix,window.innerWidth,window.innerHeight)
         player.updateUI()
         
         user.update()
+        bssPerf.mark('UI and input')
+        bssPerf.end()
 
         then=now
         
@@ -36090,7 +36107,7 @@ function createBssGraphics(){
     const panel=document.createElement('details')
     panel.id='bss-graphics-controls'
     panel.style.cssText='position:fixed;bottom:56px;right:12px;z-index:100001;background:#edf5ff;color:#18283e;border:2px solid #55739b;border-radius:10px;padding:8px;font:14px Arial;max-width:290px;max-height:70vh;overflow:auto;box-shadow:0 2px 10px #0004;user-select:auto'
-    panel.innerHTML='<summary style="cursor:pointer">Graphics</summary><div style="display:grid;gap:9px;padding-top:10px"><button data-quality type="button" style="width:auto;height:auto;padding:6px">Original look (optimized)</button><button data-low type="button" style="width:auto;height:auto;padding:6px">Chromebook preset</button><button data-ultra type="button" style="width:auto;height:auto;padding:6px">Ultra low preset</button><output data-performance style="font-size:12px">Measuring FPS…</output><label><input data-performanceMode type="checkbox" style="height:auto"> Lightweight animations and fewer bee visuals</label><label><input data-shadows type="checkbox" style="height:auto"> Detailed shadows</label><label><input data-autoResolution type="checkbox" style="height:auto"> Auto adjust resolution</label><label><input data-antialias type="checkbox" style="height:auto"> Smooth edges (refresh after changing)</label><button data-reset type="button" style="width:auto;height:auto;padding:6px">Full graphics</button><label>Flame particles <output data-flames-value></output><input data-flames type="range" min="0" max="1" step="0.05" style="width:100%"></label><label>Combo coconut trails <output data-comboParticles-value></output><input data-comboParticles type="range" min="0" max="1" step="0.05" style="width:100%"></label><label><input data-showCloudWind type="checkbox" style="height:auto"> Show clouds and wind</label><label>Other particles <output data-particles-value></output><input data-particles type="range" min="0" max="1" step="0.05" style="width:100%"></label><label>SSA star opacity <output data-starOpacity-value></output><input data-starOpacity type="range" min="0" max="1" step="0.05" style="width:100%"></label><label>Dupe token opacity <output data-dupeOpacity-value></output><input data-dupeOpacity type="range" min="0" max="1" step="0.05" style="width:100%"></label><label>Render resolution <output data-scale-value></output><input data-scale type="range" min="0.4" max="1" step="0.05" style="width:100%"></label><label><input data-showBubbles type="checkbox" style="height:auto"> Show bubbles</label><label><input data-hideSpicyBees type="checkbox" style="height:auto"> Hide Spicy Bee summons</label><label><input data-explosions type="checkbox" style="height:auto"> Decorative explosions</label><label><input data-trails type="checkbox" style="height:auto"> Trails</label><label><input data-pollenText type="checkbox" style="height:auto"> Floating pollen numbers</label><label><input data-showGlitches type="checkbox" style="height:auto"> Field glitch effects</label><small>Hidden bees and flames still work normally. Refresh once after choosing a preset to apply smooth-edge changes. Lower resolution makes the world less sharp; menus stay sharp. Settings save automatically.</small></div>'
+    panel.innerHTML='<summary style="cursor:pointer">Graphics</summary><div style="display:grid;gap:9px;padding-top:10px"><button data-diagnose type="button" style="width:auto;height:auto;padding:6px">Measure performance (5 seconds)</button><textarea data-report readonly style="display:none;width:100%;height:210px;box-sizing:border-box;font:11px monospace;user-select:text" aria-label="Performance report"></textarea><button data-quality type="button" style="width:auto;height:auto;padding:6px">Original look (optimized)</button><button data-low type="button" style="width:auto;height:auto;padding:6px">Chromebook preset</button><button data-ultra type="button" style="width:auto;height:auto;padding:6px">Ultra low preset</button><output data-performance style="font-size:12px">Measuring FPS…</output><label><input data-performanceMode type="checkbox" style="height:auto"> Lightweight animations and fewer bee visuals</label><label><input data-shadows type="checkbox" style="height:auto"> Detailed shadows</label><label><input data-autoResolution type="checkbox" style="height:auto"> Auto adjust resolution</label><label><input data-antialias type="checkbox" style="height:auto"> Smooth edges (refresh after changing)</label><button data-reset type="button" style="width:auto;height:auto;padding:6px">Full graphics</button><label>Flame particles <output data-flames-value></output><input data-flames type="range" min="0" max="1" step="0.05" style="width:100%"></label><label>Combo coconut trails <output data-comboParticles-value></output><input data-comboParticles type="range" min="0" max="1" step="0.05" style="width:100%"></label><label><input data-showCloudWind type="checkbox" style="height:auto"> Show clouds and wind</label><label>Other particles <output data-particles-value></output><input data-particles type="range" min="0" max="1" step="0.05" style="width:100%"></label><label>SSA star opacity <output data-starOpacity-value></output><input data-starOpacity type="range" min="0" max="1" step="0.05" style="width:100%"></label><label>Dupe token opacity <output data-dupeOpacity-value></output><input data-dupeOpacity type="range" min="0" max="1" step="0.05" style="width:100%"></label><label>Render resolution <output data-scale-value></output><input data-scale type="range" min="0.4" max="1" step="0.05" style="width:100%"></label><label><input data-showBubbles type="checkbox" style="height:auto"> Show bubbles</label><label><input data-hideSpicyBees type="checkbox" style="height:auto"> Hide Spicy Bee summons</label><label><input data-explosions type="checkbox" style="height:auto"> Decorative explosions</label><label><input data-trails type="checkbox" style="height:auto"> Trails</label><label><input data-pollenText type="checkbox" style="height:auto"> Floating pollen numbers</label><label><input data-showGlitches type="checkbox" style="height:auto"> Field glitch effects</label><small>Hidden bees and flames still work normally. Refresh once after choosing a preset to apply smooth-edge changes. Lower resolution makes the world less sharp; menus stay sharp. Settings save automatically.</small></div>'
     document.body.appendChild(panel)
     bssMountToolbarControl(panel,'Graphics')
     const audioPanel=document.getElementById('bss-audio-controls')
@@ -36115,6 +36132,12 @@ function createBssGraphics(){
     function lowPreset(ultra){Object.assign(settings,{performanceMode:true,shadows:false,antialias:false,autoResolution:true,beeVisualLimit:ultra?12:24,showCloudWind:false,comboParticles:0,flames:0,particles:0,hideSpicyBees:true,explosions:false,trails:false,pollenText:false,showBubbles:false,showGlitches:false,starOpacity:0.6,dupeOpacity:0,scale:ultra?0.4:0.5});refresh();commit()}
     panel.querySelector('[data-low]').onclick=()=>lowPreset(false)
     panel.querySelector('[data-ultra]').onclick=()=>lowPreset(true)
+    panel.querySelector('[data-diagnose]').onclick=()=>{
+        if(!window.bssPerf)return
+        const button=panel.querySelector('[data-diagnose]'),report=panel.querySelector('[data-report]')
+        button.disabled=true;button.textContent='Measuring… keep playing for 5 seconds'
+        window.bssPerf.start(text=>{report.style.display='block';report.value=text;button.disabled=false;button.textContent='Measure performance (5 seconds)'})
+    }
     panel.querySelector('[data-quality]').onclick=()=>{Object.assign(settings,defaults);refresh();commit()}
     panel.querySelector('[data-reset]').onclick=()=>{Object.assign(settings,defaults);refresh();commit()}
     refresh()
@@ -36690,5 +36713,27 @@ function createBssBufferUploader(gl){
         const needed=length*data.BYTES_PER_ELEMENT
         if(record.bytes<needed){let capacity=1024;while(capacity<needed)capacity*=2;gl.bufferData(target,capacity,gl.DYNAMIC_DRAW);record.bytes=capacity}
         gl.bufferSubData(target,0,data,0,length)
+    }
+}
+
+// On-demand profiling only. Timings cover JavaScript and graphics submission,
+// not asynchronous GPU execution. No gameplay update is skipped or throttled.
+function createBssFrameProfiler(details,clock=()=>performance.now()){
+    let active=false,start=0,last=0,frameStart=0,frames=0,total=0,sections=new Map(),done=()=>{}
+    return {
+        start(callback){start=clock();frames=total=0;sections=new Map();done=callback;active=true},
+        begin(){if(!active)return;frameStart=last=clock()},
+        mark(name){if(!active)return;const now=clock();sections.set(name,(sections.get(name)||0)+now-last);last=now},
+        end(){
+            if(!active)return
+            const now=clock();frames++;total+=now-frameStart
+            if(now-start<5000)return
+            active=false
+            const data=details(),lines=['BSS performance report','FPS: '+(frames*1000/(now-start)).toFixed(1),'JS frame submission: '+(total/frames).toFixed(2)+' ms','Heaviest sections (average ms/frame):']
+            for(const [name,value]of [...sections].sort((a,b)=>b[1]-a[1]))lines.push(name+': '+(value/frames).toFixed(2))
+            for(const [name,value]of Object.entries(data))lines.push(name+': '+value)
+            lines.push('GPU execution time is not measured. Run in the same field while lag occurs.')
+            done(lines.join('\n'))
+        }
     }
 }
