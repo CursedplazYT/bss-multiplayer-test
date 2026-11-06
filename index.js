@@ -18055,18 +18055,19 @@ function BeeSwarmSimulator(DATA){
             if(this.delay>0){
                 
                 this.delay-=dt
-                if(this.combo&&this.delay<=0.75)this.drawComboTarget(null)
+                if(this.combo&&this.delay<=bssCoconutPreFallWarning(this.combo.kicks))this.drawComboTarget(null)
                 
             } else {
                 
-                this.vel-=dt*20
-                if(this.combo)this.vel=Math.max(-24,this.vel) // Fixed terminal speed, regardless of combo.
+                const fallRate=this.combo?bssCoconutFallRate(this.combo.kicks):1
+                this.vel-=dt*20*fallRate*fallRate
+                if(this.combo)this.vel=Math.max(-24*fallRate,this.vel)
                 this.glow+=dt
                 this.y+=this.vel*dt
                 
                 if(this.combo){
                     this.drawComboTriangles()
-                    this.drawComboTarget(bssCoconutLandingTime(this.y+this.displaySize-this.pos[1],-this.vel))
+                    this.drawComboTarget(bssCoconutLandingTime((this.y+this.displaySize-this.pos[1]),-this.vel/fallRate)/fallRate)
                 }else{
                 meshes.cylinder_explosions.instanceData.push(this.pos[0],this.pos[1],this.pos[2],this.isBigFatBully?1:0,this.isBigFatBully?0:1,0,this.glow*0.75,this.displaySize,0.001)
                 }
@@ -36074,17 +36075,19 @@ function bssCoconutBeltPollenMultiplier(player,field,bee){
 }
 // BSS compact coconut badge v3
 // BSS combo timing and badge v4
-// Each successful juggle raises audio and fall speed by 1%, up to 2x.
+// Catch audio progressively speeds up, up to 2x.
 function bssCoconutCatchRate(catches){
     return 1+Math.min(1,Math.max(0,Number(catches)||0)*0.01)
 }
-// Steep difficulty curve: 4.4x fall speed at 20 consecutive catches.
+// Increase speed 2% per catch, retaining a 2x ceiling to avoid runaway falls.
 function bssCoconutFallRate(catches){
-    const n=Math.max(0,Number(catches)||0)
-    return Math.min(9,1+0.09*n+0.004*n*n)
+    return Math.min(2,Math.pow(1.02,Math.max(0,Number(catches)||0)))
+}
+function bssCoconutPreFallWarning(catches){
+    return 0.75*Math.pow(0.98,Math.max(0,Number(catches)||0))
 }
 function bssCoconutComboDelay(catches){
-    return Math.max(0.80,3*Math.pow(0.88,Math.max(0,(Number(catches)||1)-1)))
+    return Math.max(bssCoconutPreFallWarning(catches)+0.05,3*Math.pow(0.88,Math.max(0,(Number(catches)||1)-1)))
 }
 // BSS top Coconut Combo icon v5
 function updateBssCoconutBeltHud(player){
