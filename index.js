@@ -21805,8 +21805,7 @@ function BeeSwarmSimulator(DATA){
     function bssPoseScythe(matrix,sway=0,swing=0){
         const grip=vec3.transformQuat([],[-0.55,0.55,0.55],quat.fromEuler([],0,0,30))
         mat4.translate(matrix,matrix,[-0.50,-0.06,0.32])
-        mat4.rotateZ(matrix,matrix,-20*Math.PI/180+sway)
-        mat4.rotateY(matrix,matrix,-Math.PI/2)
+        mat4.rotateZ(matrix,matrix,sway)
         mat4.rotateX(matrix,matrix,swing*0.06)
         mat4.scale(matrix,matrix,[0.65,0.65,0.65])
         mat4.translate(matrix,matrix,grip.map(v=>-v))
