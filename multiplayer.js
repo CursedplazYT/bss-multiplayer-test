@@ -66,12 +66,13 @@ function mount(){
    for(const id of motionReceived.keys())if(!present.has(id))motionReceived.delete(id);
    peers=result.peers;adapter.receive?.(result);list.textContent='Players: '+result.names.join(', ');
    if(result.abilitySync!==1)status.textContent='Connected, but the server needs an update for frogs, bubbles and coconuts. Redeploy the updated server files.';
+   else if(result.sharedVisuals!==2)status.textContent='Connected. Update server/server.mjs and server/world.mjs for shared bubble pops and stars.';
    else if(result.swingSync!==1)status.textContent='Connected. Deploy the latest server/server.mjs to enable item swings.';
    else if(peers.some(p=>p.state&&p.state.swingVersion!==1))status.textContent='Connected. A friend must refresh their page to share item swings.';
    else if(peers.some(p=>p.state&&(!Array.isArray(p.state.frogs)||!Array.isArray(p.state.coconuts))))status.textContent='Connected. A friend needs to refresh their game to share frogs and coconuts.';
    else status.textContent='Room '+current.code+' • shared abilities ready';
    summary.textContent='Multiplayer · '+result.names.length+' online';
-  }}catch(e){if(gen===generation){peers=[];status.textContent='Connection lost: '+e.message}}finally{busy=false}
+  }}catch(e){if(gen===generation){status.textContent='Reconnecting: '+e.message}}finally{busy=false}
  },75);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount);else mount();
