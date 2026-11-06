@@ -427,12 +427,12 @@ function BeeSwarmSimulator(DATA){
 
 
     let glCanvas=document.getElementById('gl-canvas')
-    let gl=glCanvas.getContext('webgl2',{antialias:graphics.settings.antialias,powerPreference:'high-performance'})
+    let gl=glCanvas.getContext('webgl2',{alpha:false,antialias:graphics.settings.antialias,powerPreference:'high-performance'})
 
     let uiCanvas=document.getElementById('ui-canvas')
     const bssPerf=window.bssPerf=createBssFrameProfiler(()=>{
         let gpu='Not reported';try{const ext=gl.getExtension('WEBGL_debug_renderer_info');gpu=gl.getParameter(ext?ext.UNMASKED_RENDERER_WEBGL:gl.RENDERER)}catch(e){}
-        return {gpu,resolution:gl.canvas.width+' × '+gl.canvas.height,scale:Math.round(graphics.renderScale()*100)+'%',bees:objects.bees.length,temporaryBees:objects.tempBees.length,mobs:objects.mobs.length,tokens:objects.tokens.length,bubbles:objects.bubbles.length,particles:ParticleRenderer.particles.length,lowMode:graphics.settings.performanceMode,shadows:graphics.settings.shadows,memory:performance.memory?Math.round(performance.memory.usedJSHeapSize/1048576)+' MB JS heap':'Not reported',cores:navigator.hardwareConcurrency||'Not reported'}
+        return {gpu,directDisplay:graphics.settings.directDisplay,resolution:gl.canvas.width+' × '+gl.canvas.height,scale:Math.round(graphics.renderScale()*100)+'%',bees:objects.bees.length,temporaryBees:objects.tempBees.length,mobs:objects.mobs.length,tokens:objects.tokens.length,bubbles:objects.bubbles.length,particles:ParticleRenderer.particles.length,lowMode:graphics.settings.performanceMode,shadows:graphics.settings.shadows,memory:performance.memory?Math.round(performance.memory.usedJSHeapSize/1048576)+' MB JS heap':'Not reported',cores:navigator.hardwareConcurrency||'Not reported'}
     })
     const bssUploadDynamic=createBssBufferUploader(gl),bssUniformCache=new WeakMap()
     function bssUniform(program,name){
@@ -441,6 +441,11 @@ function BeeSwarmSimulator(DATA){
         return cache.get(name)
     }
     let ctx=uiCanvas.getContext('2d')
+    Object.assign(glCanvas.style,{position:'fixed',left:'0px',top:'0px',zIndex:'-4',pointerEvents:'none',display:graphics.settings.directDisplay?'block':'none'})
+    function bssPresentWorld(){
+        if(graphics.settings.directDisplay)ctx.clearRect(0,0,width,height)
+        else ctx.drawImage(gl.canvas,0,0,width,height)
+    }
 
     let texCanvas=document.getElementById('tex-canvas')
     let tex_ctx=texCanvas.getContext('2d',{willReadFrequently:true})
@@ -455,6 +460,7 @@ function BeeSwarmSimulator(DATA){
     glCanvas.height=Math.max(1,Math.round(height*graphics.renderScale()))
     uiCanvas.width=width
     uiCanvas.height=height
+    glCanvas.style.width=width+'px';glCanvas.style.height=height+'px'
 
     gl.canvas.width=Math.max(1,Math.round(width*graphics.renderScale()))
     gl.canvas.height=Math.max(1,Math.round(height*graphics.renderScale()))
@@ -469,6 +475,7 @@ function BeeSwarmSimulator(DATA){
         glCanvas.height=Math.max(1,Math.round(height*graphics.renderScale()))
         uiCanvas.width=width
         uiCanvas.height=height
+        glCanvas.style.width=width+'px';glCanvas.style.height=height+'px'
         
         gl.canvas.width=Math.max(1,Math.round(width*graphics.renderScale()))
         gl.canvas.height=Math.max(1,Math.round(height*graphics.renderScale()))
@@ -34923,7 +34930,7 @@ function BeeSwarmSimulator(DATA){
     
     gl.drawElements(gl.TRIANGLES,6,gl.UNSIGNED_SHORT,0)
 
-    ctx.drawImage(gl.canvas,0,0,width,height)
+    bssPresentWorld()
 
 
     function loop(now){
@@ -35638,10 +35645,10 @@ function BeeSwarmSimulator(DATA){
         bssPerf.mark('Bubbles and effects')
         textRenderer.render(dt,Math.sin(TIME*20))
         
-        ctx.drawImage(gl.canvas,0,0,width,height)
+        bssPresentWorld()
         
         textRenderer.draw()
-        bssPerf.mark('Text and canvas copy')
+        bssPerf.mark('Text and presentation')
         
         updateBssRates(player)
         updateBssCoconutBeltHud(player,player.viewMatrix,window.innerWidth,window.innerHeight)
@@ -35663,6 +35670,8 @@ function BeeSwarmSimulator(DATA){
 
     let appliedGraphicsScale=graphics.renderScale()
     graphics.onChange(()=>{
+        glCanvas.style.display=graphics.settings.directDisplay?'block':'none'
+        ctx.clearRect(0,0,width,height)
         if(appliedGraphicsScale!==graphics.renderScale()){
             appliedGraphicsScale=graphics.renderScale()
             windowResize()
@@ -36095,19 +36104,19 @@ function createBssAudio(){
 
 function createBssGraphics(){
     if(window.bssGraphics)return window.bssGraphics
-    const defaults={performanceMode:false,shadows:true,antialias:true,autoResolution:false,beeVisualLimit:60,comboParticles:1,showCloudWind:true,flames:1,particles:1,hideSpicyBees:false,explosions:true,trails:true,pollenText:true,showBubbles:true,showGlitches:true,starOpacity:1,dupeOpacity:1,scale:1}
+    const defaults={directDisplay:true,performanceMode:false,shadows:true,antialias:true,autoResolution:false,beeVisualLimit:60,comboParticles:1,showCloudWind:true,flames:1,particles:1,hideSpicyBees:false,explosions:true,trails:true,pollenText:true,showBubbles:true,showGlitches:true,starOpacity:1,dupeOpacity:1,scale:1}
     let settings={...defaults},changed=()=>{},accumulator={flame:0,other:0}
     try{Object.assign(settings,JSON.parse(localStorage.getItem('bss-mp-graphics-settings')||'{}'))}catch(e){}
     for(const key of ['flames','particles','scale','starOpacity','dupeOpacity','comboParticles']){
         const n=Number(settings[key]);settings[key]=Number.isFinite(n)?Math.max(key==='scale'?0.4:0,Math.min(1,n)):defaults[key]
     }
-    for(const key of ['performanceMode','shadows','antialias','autoResolution','hideSpicyBees','explosions','trails','pollenText','showBubbles','showGlitches','showCloudWind'])settings[key]=typeof settings[key]==='boolean'?settings[key]:defaults[key]
+    for(const key of ['directDisplay','performanceMode','shadows','antialias','autoResolution','hideSpicyBees','explosions','trails','pollenText','showBubbles','showGlitches','showCloudWind'])settings[key]=typeof settings[key]==='boolean'?settings[key]:defaults[key]
     settings.beeVisualLimit=Math.max(8,Math.min(60,Number(settings.beeVisualLimit)||60))
     let effectiveScale=settings.scale,frameSum=0,frameSamples=0,upVotes=0
     const panel=document.createElement('details')
     panel.id='bss-graphics-controls'
     panel.style.cssText='position:fixed;bottom:56px;right:12px;z-index:100001;background:#edf5ff;color:#18283e;border:2px solid #55739b;border-radius:10px;padding:8px;font:14px Arial;max-width:290px;max-height:70vh;overflow:auto;box-shadow:0 2px 10px #0004;user-select:auto'
-    panel.innerHTML='<summary style="cursor:pointer">Graphics</summary><div style="display:grid;gap:9px;padding-top:10px"><button data-diagnose type="button" style="width:auto;height:auto;padding:6px">Measure performance (5 seconds)</button><textarea data-report readonly style="display:none;width:100%;height:210px;box-sizing:border-box;font:11px monospace;user-select:text" aria-label="Performance report"></textarea><button data-quality type="button" style="width:auto;height:auto;padding:6px">Original look (optimized)</button><button data-low type="button" style="width:auto;height:auto;padding:6px">Chromebook preset</button><button data-ultra type="button" style="width:auto;height:auto;padding:6px">Ultra low preset</button><output data-performance style="font-size:12px">Measuring FPS…</output><label><input data-performanceMode type="checkbox" style="height:auto"> Lightweight animations and fewer bee visuals</label><label><input data-shadows type="checkbox" style="height:auto"> Detailed shadows</label><label><input data-autoResolution type="checkbox" style="height:auto"> Auto adjust resolution</label><label><input data-antialias type="checkbox" style="height:auto"> Smooth edges (refresh after changing)</label><button data-reset type="button" style="width:auto;height:auto;padding:6px">Full graphics</button><label>Flame particles <output data-flames-value></output><input data-flames type="range" min="0" max="1" step="0.05" style="width:100%"></label><label>Combo coconut trails <output data-comboParticles-value></output><input data-comboParticles type="range" min="0" max="1" step="0.05" style="width:100%"></label><label><input data-showCloudWind type="checkbox" style="height:auto"> Show clouds and wind</label><label>Other particles <output data-particles-value></output><input data-particles type="range" min="0" max="1" step="0.05" style="width:100%"></label><label>SSA star opacity <output data-starOpacity-value></output><input data-starOpacity type="range" min="0" max="1" step="0.05" style="width:100%"></label><label>Dupe token opacity <output data-dupeOpacity-value></output><input data-dupeOpacity type="range" min="0" max="1" step="0.05" style="width:100%"></label><label>Render resolution <output data-scale-value></output><input data-scale type="range" min="0.4" max="1" step="0.05" style="width:100%"></label><label><input data-showBubbles type="checkbox" style="height:auto"> Show bubbles</label><label><input data-hideSpicyBees type="checkbox" style="height:auto"> Hide Spicy Bee summons</label><label><input data-explosions type="checkbox" style="height:auto"> Decorative explosions</label><label><input data-trails type="checkbox" style="height:auto"> Trails</label><label><input data-pollenText type="checkbox" style="height:auto"> Floating pollen numbers</label><label><input data-showGlitches type="checkbox" style="height:auto"> Field glitch effects</label><small>Hidden bees and flames still work normally. Refresh once after choosing a preset to apply smooth-edge changes. Lower resolution makes the world less sharp; menus stay sharp. Settings save automatically.</small></div>'
+    panel.innerHTML='<summary style="cursor:pointer">Graphics</summary><div style="display:grid;gap:9px;padding-top:10px"><label><input data-directDisplay type="checkbox" style="height:auto"> Direct GPU display</label><button data-diagnose type="button" style="width:auto;height:auto;padding:6px">Measure performance (5 seconds)</button><textarea data-report readonly style="display:none;width:100%;height:210px;box-sizing:border-box;font:11px monospace;user-select:text" aria-label="Performance report"></textarea><button data-quality type="button" style="width:auto;height:auto;padding:6px">Original look (optimized)</button><button data-low type="button" style="width:auto;height:auto;padding:6px">Chromebook preset</button><button data-ultra type="button" style="width:auto;height:auto;padding:6px">Ultra low preset</button><output data-performance style="font-size:12px">Measuring FPS…</output><label><input data-performanceMode type="checkbox" style="height:auto"> Lightweight animations and fewer bee visuals</label><label><input data-shadows type="checkbox" style="height:auto"> Detailed shadows</label><label><input data-autoResolution type="checkbox" style="height:auto"> Auto adjust resolution</label><label><input data-antialias type="checkbox" style="height:auto"> Smooth edges (refresh after changing)</label><button data-reset type="button" style="width:auto;height:auto;padding:6px">Full graphics</button><label>Flame particles <output data-flames-value></output><input data-flames type="range" min="0" max="1" step="0.05" style="width:100%"></label><label>Combo coconut trails <output data-comboParticles-value></output><input data-comboParticles type="range" min="0" max="1" step="0.05" style="width:100%"></label><label><input data-showCloudWind type="checkbox" style="height:auto"> Show clouds and wind</label><label>Other particles <output data-particles-value></output><input data-particles type="range" min="0" max="1" step="0.05" style="width:100%"></label><label>SSA star opacity <output data-starOpacity-value></output><input data-starOpacity type="range" min="0" max="1" step="0.05" style="width:100%"></label><label>Dupe token opacity <output data-dupeOpacity-value></output><input data-dupeOpacity type="range" min="0" max="1" step="0.05" style="width:100%"></label><label>Render resolution <output data-scale-value></output><input data-scale type="range" min="0.4" max="1" step="0.05" style="width:100%"></label><label><input data-showBubbles type="checkbox" style="height:auto"> Show bubbles</label><label><input data-hideSpicyBees type="checkbox" style="height:auto"> Hide Spicy Bee summons</label><label><input data-explosions type="checkbox" style="height:auto"> Decorative explosions</label><label><input data-trails type="checkbox" style="height:auto"> Trails</label><label><input data-pollenText type="checkbox" style="height:auto"> Floating pollen numbers</label><label><input data-showGlitches type="checkbox" style="height:auto"> Field glitch effects</label><small>Hidden bees and flames still work normally. Refresh once after choosing a preset to apply smooth-edge changes. Lower resolution makes the world less sharp; menus stay sharp. Settings save automatically.</small></div>'
     document.body.appendChild(panel)
     bssMountToolbarControl(panel,'Graphics')
     const audioPanel=document.getElementById('bss-audio-controls')
@@ -36120,7 +36129,7 @@ function createBssGraphics(){
             panel.querySelector('[data-'+key+']').value=settings[key]
             panel.querySelector('[data-'+key+'-value]').textContent=Math.round(settings[key]*100)+'%'
         }
-        for(const key of ['performanceMode','shadows','antialias','autoResolution','hideSpicyBees','explosions','trails','pollenText','showBubbles','showGlitches','showCloudWind'])panel.querySelector('[data-'+key+']').checked=settings[key]
+        for(const key of ['directDisplay','performanceMode','shadows','antialias','autoResolution','hideSpicyBees','explosions','trails','pollenText','showBubbles','showGlitches','showCloudWind'])panel.querySelector('[data-'+key+']').checked=settings[key]
     }
     function commit(){effectiveScale=settings.scale;frameSum=frameSamples=upVotes=0;accumulator={flame:0,other:0};persist();changed()}
     for(const key of ['flames','particles','scale','starOpacity','dupeOpacity','comboParticles']){
@@ -36128,7 +36137,7 @@ function createBssGraphics(){
         input.oninput=()=>{panel.querySelector('[data-'+key+'-value]').textContent=Math.round(Number(input.value)*100)+'%';if(key!=='scale'){settings[key]=Number(input.value);commit()}}
         input.onchange=()=>{settings[key]=Number(input.value);commit()}
     }
-    for(const key of ['performanceMode','shadows','antialias','autoResolution','hideSpicyBees','explosions','trails','pollenText','showBubbles','showGlitches','showCloudWind'])panel.querySelector('[data-'+key+']').onchange=e=>{settings[key]=e.target.checked;commit()}
+    for(const key of ['directDisplay','performanceMode','shadows','antialias','autoResolution','hideSpicyBees','explosions','trails','pollenText','showBubbles','showGlitches','showCloudWind'])panel.querySelector('[data-'+key+']').onchange=e=>{settings[key]=e.target.checked;commit()}
     function lowPreset(ultra){Object.assign(settings,{performanceMode:true,shadows:false,antialias:false,autoResolution:true,beeVisualLimit:ultra?12:24,showCloudWind:false,comboParticles:0,flames:0,particles:0,hideSpicyBees:true,explosions:false,trails:false,pollenText:false,showBubbles:false,showGlitches:false,starOpacity:0.6,dupeOpacity:0,scale:ultra?0.4:0.5});refresh();commit()}
     panel.querySelector('[data-low]').onclick=()=>lowPreset(false)
     panel.querySelector('[data-ultra]').onclick=()=>lowPreset(true)
