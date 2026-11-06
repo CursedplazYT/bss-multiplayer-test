@@ -21666,6 +21666,7 @@ function BeeSwarmSimulator(DATA){
         for(const key of ['hive','hiveEffects'])if(triggers[key]){triggers[key].minX+=delta;triggers[key].maxX+=delta}
         player.updateHive()
     }
+    let mpCoconutSerial=0
     function mpSnapshot(){
         const fieldPollen={};for(const field of Object.keys(fieldInfo))fieldPollen[field]=player.stats['pollenFrom'+field]||0
         const sprouts=objects.mobs.filter(m=>m instanceof Sprout).map(m=>{
@@ -21676,6 +21677,11 @@ function BeeSwarmSimulator(DATA){
             bees:objects.bees.slice(0,60).map(b=>({type:b.type,pos:b.pos.slice(0,3),dir:(b.moveDir?.length===3?b.moveDir:[0,0,1]).slice(),gifted:!!b.gifted})),
             hive:player.hive.map(row=>row.map(b=>b?{type:b.type,gifted:!!b.gifted,level:b.level}:null)),
             planters:objects.planters.map(p=>({type:p.type,pos:p.pos.slice(0,3),progress:Math.max(0,Math.min(1,p.growth/p.maxGrowth)),glistering:!!p.glistering})),
+            coconuts:objects.mobs.filter(m=>m instanceof Coconut&&!m.isBigFatBully).slice(0,40).map(m=>{
+                if(!m.mpCoconutId)m.mpCoconutId=String(++mpCoconutSerial)
+                const rate=m.combo?bssCoconutFallRate(m.combo.kicks):1
+                return {id:m.mpCoconutId,bounce:m.combo?m.combo.kicks:0,pos:[m.pos[0],m.y,m.pos[2]],ground:m.pos[1],velocity:m.vel,delay:Math.max(0,m.delay),size:m.displaySize,combo:!!m.combo,gravity:20*rate*rate,terminal:m.combo?24*rate:2000}
+            }),
             sprouts,fieldPollen,
             drops:objects.tokens.filter(t=>t.mpId?.startsWith(mpSessionId+':')&&!t.mpRemote&&!t.collected&&t.life>0).map(t=>({id:t.mpId,type:t.type,pos:t.pos.slice(0,3),amount:t.amount,life:t.life,source:t.from}))}
     }
@@ -21745,7 +21751,30 @@ function BeeSwarmSimulator(DATA){
         gl.uniform4fv(glCache.mob_instanceInfo1,[...position,0]);gl.uniform2f(glCache.mob_instanceInfo2,scale,1)
         gl.drawElements(gl.TRIANGLES,mesh.indexAmount,gl.UNSIGNED_SHORT,0)
     }
+    const mpCoconutViews=new Map()
+    function mpRenderCoconuts(peers){
+        const present=new Set(),now=performance.now()
+        for(const peer of peers)for(const coconut of peer.state?.coconuts||[]){
+            if(!Array.isArray(coconut.pos)||coconut.pos.length!==3||!coconut.pos.every(Number.isFinite))continue
+            const key=peer.id+':'+coconut.id;present.add(key)
+            let view=mpCoconutViews.get(key)
+            if(!view||view.snapshot!==coconut){view={snapshot:coconut,received:now};mpCoconutViews.set(key,view)}
+            const elapsed=Math.min(0.4,(now-view.received)/1000)
+            if(elapsed<coconut.delay)continue
+            let y=coconut.pos[1],v=coconut.velocity,time=elapsed-coconut.delay
+            // Predict between syncs. Remote coconuts are visual only.
+            for(let step=0;time>0&&step<60;step++){
+                const h=Math.min(1/120,time);v=Math.max(-coconut.terminal,v-coconut.gravity*h);y+=v*h;time-=h
+            }
+            if(y+coconut.size<coconut.ground)continue
+            const [x,,z]=coconut.pos,col=coconut.combo?[0.55,0.55,0.55]:[0.3*player.isNight,0.1*player.isNight,0]
+            meshes.explosions.instanceData.push(x,y,z,1,1,1,0.15,-coconut.size-1,1)
+            meshes.explosions.instanceData.push(x,y,z,...col,1,coconut.size,1)
+        }
+        for(const key of mpCoconutViews.keys())if(!present.has(key))mpCoconutViews.delete(key)
+    }
     function mpRenderWorld(peers){
+        mpRenderCoconuts(peers)
         for(const peer of peers)for(const p of peer.state?.planters||[]){
             mpMobMesh(p.type+'Planter',p.pos)
             const height={paper:1.5,pesticide:1.5,plenty:2.4}[p.type]||1.175

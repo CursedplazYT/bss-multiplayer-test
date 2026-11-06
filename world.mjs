@@ -7,7 +7,8 @@ export function cleanExtras(s){
  const bees=(Array.isArray(s.bees)?s.bees:[]).slice(0,60).filter(b=>word(b.type)&&pos(b.pos)&&pos(b.dir)).map(b=>({type:b.type,pos:b.pos,dir:b.dir,gifted:!!b.gifted}));
  const hive=(Array.isArray(s.hive)?s.hive:[]).slice(0,20).map(row=>(Array.isArray(row)?row:[]).slice(0,10).map(b=>b&&word(b.type)?{type:b.type,gifted:!!b.gifted,level:Math.max(1,Math.min(100,Math.floor(b.level)||1))}:null));
  const planters=(Array.isArray(s.planters)?s.planters:[]).slice(0,3).filter(p=>['paper','plastic','candy','redClay','blueClay','tacky','pesticide','petal','plenty'].includes(p.type)&&pos(p.pos)&&number(p.progress,1)&&p.progress>=0).map(p=>({type:p.type,pos:p.pos,progress:p.progress,glistering:!!p.glistering}));
- return {bees,hive,planters};
+ const coconuts=(Array.isArray(s.coconuts)?s.coconuts:[]).slice(0,40).filter(c=>c&&typeof c.id==='string'&&/^[0-9]{1,12}$/.test(c.id)&&pos(c.pos)&&number(c.ground)&&number(c.velocity,2000)&&number(c.delay,10)&&c.delay>=0&&number(c.size,10)&&c.size>0&&number(c.gravity,100000)&&c.gravity>0&&number(c.terminal,2000)&&c.terminal>0).map(c=>({id:c.id,bounce:Math.max(0,Math.min(100,Math.floor(c.bounce)||0)),pos:c.pos.slice(),ground:c.ground,velocity:c.velocity,delay:c.delay,size:c.size,combo:!!c.combo,gravity:c.gravity,terminal:c.terminal}));
+ return {bees,hive,planters,coconuts};
 }
 export function world(room){return room.world||(room.world={sprouts:new Map(),drops:new Map()})}
 export function updateWorld(room,p,s,now){
