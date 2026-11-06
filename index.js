@@ -18055,7 +18055,7 @@ function BeeSwarmSimulator(DATA){
             if(this.delay>0){
                 
                 this.delay-=dt
-                if(this.combo&&this.delay<=0.25)this.drawComboTarget(null)
+                if(this.combo&&this.delay<=0.75)this.drawComboTarget(null)
                 
             } else {
                 
@@ -36084,7 +36084,7 @@ function bssCoconutFallRate(catches){
     return Math.min(9,1+0.09*n+0.004*n*n)
 }
 function bssCoconutComboDelay(catches){
-    return Math.max(0.30,3*Math.pow(0.88,Math.max(0,(Number(catches)||1)-1)))
+    return Math.max(0.80,3*Math.pow(0.88,Math.max(0,(Number(catches)||1)-1)))
 }
 // BSS top Coconut Combo icon v5
 function updateBssCoconutBeltHud(player){
