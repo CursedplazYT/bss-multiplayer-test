@@ -36053,7 +36053,7 @@ function grantBssCoconutCombo(player,stacks,now=Date.now()){
 }
 function bssCoconutComboBonuses(stacks){
     const n=Math.max(1,Math.min(100,stacks)),t=(n-1)/99
-    return {pollen:1.2+0.8*t,color:1+0.005*n,attack:1+0.005*n,honey:1+0.005*n,unique:0.25+0.5*t}
+    return {pollen:1.4+1.6*t,color:1+0.01*n,attack:1+0.01*n,honey:1+0.01*n,unique:0.25+0.5*t}
 }
 function applyBssCoconutComboStats(player,now=Date.now()){
     const buff=player.extraInfo.coconutCombo
@@ -36079,9 +36079,9 @@ function bssCoconutBeltPollenMultiplier(player,field,bee){
 function bssCoconutCatchRate(catches){
     return 1+Math.min(1,Math.max(0,Number(catches)||0)*0.01)
 }
-// Compound fall speed and warning duration by 15% per catch, without a speed cap.
+// Fall speed stops increasing at five catches; warning time keeps shrinking.
 function bssCoconutFallRate(catches){
-    return Math.pow(1.15,Math.max(0,Number(catches)||0))
+    return Math.pow(1.15,Math.min(5,Math.max(0,Number(catches)||0)))
 }
 function bssCoconutPreFallWarning(catches){
     return 0.5*Math.pow(0.85,Math.max(0,Number(catches)||0))
