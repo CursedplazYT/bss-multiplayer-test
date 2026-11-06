@@ -21678,7 +21678,7 @@ function BeeSwarmSimulator(DATA){
             if(!m.mpId?.startsWith(mpSessionId+':'))m.mpId=mp.uid()
             return {id:m.mpId,type:m.type,field:m.field,pos:m.pos.slice(0,3),remaining:Math.max(0,m.pollenBefore-player.stats['pollenFrom'+m.field])}
         })
-        return {position:[player.body.position.x,player.body.position.y,player.body.position.z],velocity:[player.body.velocity.x,player.body.velocity.y,player.body.velocity.z],motionSeq:++mpMotionSequence,rotation:Array.from(player.rotQuat),gear:player.currentGear,
+        return {position:[player.body.position.x,player.body.position.y,player.body.position.z],velocity:[player.body.velocity.x,player.body.velocity.y,player.body.velocity.z],motionSeq:++mpMotionSequence,toolMotion:{seq:player.mpSwingSequence||0,phase:player.mpSwingSequence?Math.max(0,Math.min(4,player.toolRot)):4},rotation:Array.from(player.rotQuat),gear:player.currentGear,
             bees:objects.bees.slice(0,60).map(b=>({type:b.type,pos:b.pos.slice(0,3),dir:(b.moveDir?.length===3?b.moveDir:[0,0,1]).slice(),gifted:!!b.gifted})),
             hive:player.hive.map(row=>row.map(b=>b?{type:b.type,gifted:!!b.gifted,level:b.level}:null)),
             planters:objects.planters.map(p=>({type:p.type,pos:p.pos.slice(0,3),progress:Math.max(0,Math.min(1,p.growth/p.maxGrowth)),glistering:!!p.glistering})),
@@ -21882,10 +21882,18 @@ function BeeSwarmSimulator(DATA){
                 mat4.scale(bodyMatrix,bodyMatrix,[1,1.55,1])
                 gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,bodyMatrix);a.body.render()
                 const heldTool=mat4.clone(bodyMatrix)
-                if(peer.state.gear.tool==='darkScythe')bssPoseScythe(heldTool)
-                else mat4.translate(heldTool,heldTool,bssAvatarGripOffset(peer.state.gear.tool))
+                const swing=bssRemoteToolSwing(a,peer.state,dt)
+                const velocity=peer.state.velocity||[0,0,0]
+                a.armPhase=(a.armPhase||0)+dt*(3+Math.hypot(velocity[0],velocity[2])*1.8)*(a.walking||0)
+                const sway=Math.sin(a.armPhase)*0.065*(a.walking||0)
+                if(peer.state.gear.tool==='darkScythe')bssPoseScythe(heldTool,sway,swing)
+                else{
+                    mat4.rotateZ(heldTool,heldTool,sway)
+                    mat4.rotateX(heldTool,heldTool,swing)
+                    mat4.translate(heldTool,heldTool,bssAvatarGripOffset(peer.state.gear.tool))
+                }
                 gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,heldTool);a.tool.render()
-                drawBssGripArm(bodyMatrix,heldTool,peer.state.gear.tool,a.walking||0)
+                drawBssGripArm(bodyMatrix,heldTool,peer.state.gear.tool,a.walking||0,a.armPhase)
             }
         }
     })
@@ -27535,6 +27543,7 @@ function BeeSwarmSimulator(DATA){
                 if(gear.tool[out.currentGear.tool].ability) gear.tool[out.currentGear.tool].ability(arr)
                 
                 out.toolCooldown=gear.tool[out.currentGear.tool].cooldown/player.collectorSpeed
+                out.mpSwingSequence=(out.mpSwingSequence||0)+1
                 out.toolRot=0
             }
             
@@ -36449,4 +36458,15 @@ function bssUpdateRemoteMotion(avatar,state,dt,now){
     if(!avatar.rotation)avatar.rotation=state.rotation.slice()
     else quat.slerp(avatar.rotation,avatar.rotation,state.rotation,blend)
     avatar.walking=Math.min(1,Math.hypot(velocity[0],velocity[2])/3)
+}
+
+// Render a friend's swing once per use; no collection or abilities run remotely.
+function bssRemoteToolSwing(avatar,state,dt){
+    const motion=state.toolMotion
+    if(!motion)return 0
+    if(avatar.swingSeq!==motion.seq){
+        avatar.swingSeq=motion.seq
+        avatar.swingPhase=motion.phase
+    }else avatar.swingPhase=Math.min(4,(avatar.swingPhase??4)+Math.max(0,dt)*10)
+    return Math.max(0,2-Math.abs(avatar.swingPhase-2))*Math.PI/4
 }

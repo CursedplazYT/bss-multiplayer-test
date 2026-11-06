@@ -10,7 +10,9 @@ function cleanState(s){
  const length=Math.hypot(...s.rotation);if(length<0.5||length>1.5)throw fail(400,'Invalid rotation');
  const gear={};for(const [k,v]of Object.entries(s.gear||{}))if(/^[a-zA-Z]{1,30}$/.test(k)&&typeof v==='string'&&/^[a-zA-Z0-9]{1,50}$/.test(v))gear[k]=v;
  const velocity=Array.isArray(s.velocity)&&s.velocity.length===3&&s.velocity.every(n=>Number.isFinite(n)&&Math.abs(n)<=200)?s.velocity:[0,0,0];
- return {position:s.position,velocity,motionSeq:Number.isSafeInteger(s.motionSeq)&&s.motionSeq>=0?s.motionSeq:0,rotation:s.rotation.map(n=>n/length),gear,...cleanExtras(s)};
+ const t=s.toolMotion;
+ const toolMotion=t&&Number.isSafeInteger(t.seq)&&t.seq>=0&&Number.isFinite(t.phase)?{seq:t.seq,phase:Math.max(0,Math.min(4,t.phase))}:{seq:0,phase:4};
+ return {position:s.position,velocity,toolMotion,motionSeq:Number.isSafeInteger(s.motionSeq)&&s.motionSeq>=0?s.motionSeq:0,rotation:s.rotation.map(n=>n/length),gear,...cleanExtras(s)};
 }
 export const server=http.createServer(async(req,res)=>{
  const headers={'Content-Type':'application/json','Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'Content-Type','Access-Control-Allow-Methods':'POST, OPTIONS','Cache-Control':'no-store'};

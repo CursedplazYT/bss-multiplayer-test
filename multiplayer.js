@@ -28,13 +28,13 @@ window.BSSMultiplayer={
  async claim(dropId){const current=session,gen=generation;if(!current)return {granted:false};const result=await request('/claim',{...current,dropId});return gen===generation?result:{granted:false}}
 };
 function mount(){
- const panel=document.createElement('details');panel.style.cssText='position:fixed;right:12px;top:65px;z-index:99999;background:#333e;color:white;padding:10px;border-radius:7px;font:14px Arial;max-width:270px';
- const summary=document.createElement('summary');summary.textContent='Multiplayer • join guard 2';panel.append(summary);
+ const panel=document.createElement('details');panel.style.cssText='position:fixed;right:12px;top:65px;z-index:99999;background:rgba(24,29,36,.94);color:#f1f5f9;padding:12px;border:1px solid #536170;border-radius:10px;font:13px/1.45 Arial;width:270px;max-width:calc(100vw - 48px);box-shadow:0 5px 20px #0005';
+ const summary=document.createElement('summary');summary.textContent='Multiplayer';summary.style.cssText='cursor:pointer;font-weight:700';panel.append(summary);
  const name=document.createElement('input');name.placeholder='Your name';name.maxLength=20;
  const code=document.createElement('input');code.placeholder='Room code';code.maxLength=6;
- const status=document.createElement('p');status.textContent='Offline • separate test saves';
- const list=document.createElement('p');
- for(const input of [name,code]){input.style.cssText='display:block;margin:8px 0;width:240px;height:25px;color:black;background:white;box-sizing:border-box';panel.append(input)}
+ const status=document.createElement('p');status.textContent='Not connected';status.style.cssText='margin:10px 0 4px;color:#b8c7d8';
+ const list=document.createElement('p');list.style.cssText='margin:4px 0 0;color:#dce6f1;overflow-wrap:anywhere';
+ for(const input of [name,code]){input.style.cssText='display:block;margin:10px 0;width:100%;height:34px;padding:6px 9px;color:#f8fafc;background:#111820;border:1px solid #536170;border-radius:5px;box-sizing:border-box;font:13px Arial';panel.append(input)}
  async function connect(create){
   if(!adapter){status.textContent='Start your game first.';return}
   const old=session,gen=++generation;session=null;clear();if(old)request('/leave',old).catch(()=>{});status.textContent='Connecting…';
@@ -45,8 +45,8 @@ function mount(){
   }catch(e){if(gen===generation)status.textContent=e.message}
  }
  const buttons=document.createElement('div');buttons.style.cssText='display:flex;gap:5px;flex-wrap:wrap';panel.append(buttons);
- for(const [label,fn]of [['Create Room',()=>connect(true)],['Join Room',()=>connect(false)],['Leave',()=>{generation++;const old=session;session=null;clear();list.textContent='';status.textContent='Offline';if(old)request('/leave',old).catch(()=>{})}]]){
-  const b=document.createElement('button');b.textContent=label;b.style.cssText='position:static;display:inline-block;width:auto;height:auto;min-height:30px;padding:5px 8px;margin:0;font:13px Arial;white-space:nowrap;color:#111;background:#eee';b.onclick=fn;buttons.append(b)
+ for(const [label,fn]of [['Create Room',()=>connect(true)],['Join Room',()=>connect(false)],['Leave',()=>{generation++;const old=session;session=null;clear();list.textContent='';status.textContent='Not connected';summary.textContent='Multiplayer';if(old)request('/leave',old).catch(()=>{})}]]){
+  const b=document.createElement('button');b.textContent=label;b.style.cssText='position:static;display:inline-block;width:auto;height:auto;min-height:30px;padding:6px 10px;margin:0;font:13px Arial;white-space:nowrap;color:#f1f5f9;background:#34465a;border:1px solid #60758c;border-radius:5px;cursor:pointer';b.onclick=fn;buttons.append(b)
  }
  panel.append(status,list);document.body.append(panel);
  for(const event of ['keydown','keyup','pointerdown','touchstart'])panel.addEventListener(event,e=>e.stopPropagation());
@@ -66,7 +66,8 @@ function mount(){
    peers=result.peers;adapter.receive?.(result);list.textContent='Players: '+result.names.join(', ');
    if(result.abilitySync!==1)status.textContent='Connected, but the server needs an update for frogs, bubbles and coconuts. Redeploy the updated server files.';
    else if(peers.some(p=>p.state&&(!Array.isArray(p.state.frogs)||!Array.isArray(p.state.coconuts))))status.textContent='Connected. A friend needs to refresh their game to share frogs and coconuts.';
-   else status.textContent='Room '+current.code+' • connected • shared abilities ready';
+   else status.textContent='Room '+current.code+' • shared abilities ready';
+   summary.textContent='Multiplayer · '+result.names.length+' online';
   }}catch(e){if(gen===generation){peers=[];status.textContent='Connection lost: '+e.message}}finally{busy=false}
  },100);
 }
