@@ -36446,18 +36446,45 @@ function bssCoconutLandingTime(distance,speed){
     return h<=capDistance?(Math.sqrt(v*v+40*h)-v)/20:untilCap+(h-capDistance)/24
 }
 
-// Bounded prediction avoids waiting for each network position while correcting smoothly.
+// Buffer positions briefly and interpolate the path, rather than chasing each packet.
 function bssUpdateRemoteMotion(avatar,state,dt,now){
-    const velocity=Array.isArray(state.velocity)&&state.velocity.length===3&&state.velocity.every(Number.isFinite)?state.velocity:[0,0,0]
-    const age=Math.max(0,(now-(state._receivedAt??now))/1000)
-    const lead=Math.min(0.18,age+Math.min(0.10,(state._rtt||0)/2000))
-    const target=state.position.map((v,i)=>v+velocity[i]*lead)
-    const error=Math.hypot(...target.map((v,i)=>v-avatar.position[i]))
-    const blend=1-Math.exp(-22*Math.max(0,Math.min(0.1,dt)))
-    for(let i=0;i<3;i++)avatar.position[i]=error>15?target[i]:avatar.position[i]+(target[i]-avatar.position[i])*blend
-    if(!avatar.rotation)avatar.rotation=state.rotation.slice()
-    else quat.slerp(avatar.rotation,avatar.rotation,state.rotation,blend)
-    avatar.walking=Math.min(1,Math.hypot(velocity[0],velocity[2])/3)
+    const samples=state._motionSamples?.length?state._motionSamples:[{time:state._receivedAt??now,position:state.position,rotation:state.rotation,velocity:state.velocity}]
+    const renderTime=now-120
+    let left=samples[0],right=left
+    for(const sample of samples){
+        if(sample.time<=renderTime)left=sample
+        if(sample.time>=renderTime){right=sample;break}
+        right=sample
+    }
+    let target=left.position.slice(),rotation=left.rotation.slice()
+    if(right.time>left.time){
+        const t=Math.max(0,Math.min(1,(renderTime-left.time)/(right.time-left.time)))
+        target=left.position.map((v,i)=>v+(right.position[i]-v)*t)
+        quat.slerp(rotation,left.rotation,right.rotation,t)
+    }else if(renderTime>right.time){
+        let velocity=right.velocity
+        if(!Array.isArray(velocity)&&samples.length>1){
+            const previous=samples[samples.length-2],seconds=(right.time-previous.time)/1000
+            velocity=seconds>0?right.position.map((v,i)=>(v-previous.position[i])/seconds):[0,0,0]
+        }
+        const lead=Math.min(0.08,Math.max(0,(renderTime-right.time)/1000))
+        if(Array.isArray(velocity)&&velocity.every(Number.isFinite))target=right.position.map((v,i)=>v+velocity[i]*lead)
+    }
+    const step=Math.max(0,Math.min(0.1,dt)),blend=1-Math.exp(-30*step)
+    const before=avatar.position.slice()
+    // Limit corrections too: a delayed packet cannot create a one-frame teleport.
+    let speed=0
+    const last=samples[samples.length-1],previous=samples[samples.length-2]
+    if(Array.isArray(last.velocity))speed=Math.hypot(last.velocity[0],last.velocity[2])
+    else if(previous&&last.time>previous.time)speed=Math.hypot(last.position[0]-previous.position[0],last.position[2]-previous.position[2])*1000/(last.time-previous.time)
+    const delta=target.map((v,i)=>(v-avatar.position[i])*blend)
+    const distance=Math.hypot(...delta),maxStep=Math.max(6,speed*1.4+4)*step
+    const correction=distance>maxStep&&distance>0?maxStep/distance:1
+    for(let i=0;i<3;i++)avatar.position[i]+=delta[i]*correction
+    if(!avatar.rotation)avatar.rotation=rotation
+    else quat.slerp(avatar.rotation,avatar.rotation,rotation,blend)
+    const visualSpeed=step>0?Math.hypot(avatar.position[0]-before[0],avatar.position[2]-before[2])/step:0
+    avatar.walking=Math.min(1,visualSpeed/3)
 }
 
 // Render a friend's swing once per use; no collection or abilities run remotely.

@@ -59,8 +59,9 @@ function mount(){
     present.add(peer.id);if(!peer.state)continue;
     const key=peer.state.motionSeq??JSON.stringify([peer.state.position,peer.state.rotation]);
     const old=motionReceived.get(peer.id);
-    const receipt=old&&old.key===key?old:{key,time:receivedAt};motionReceived.set(peer.id,receipt);
+    const receipt=old&&old.key===key?old:{key,time:receivedAt,samples:[...(old?.samples||[]),{time:receivedAt,position:peer.state.position.slice(),rotation:peer.state.rotation.slice(),velocity:peer.state.velocity?.slice()}].slice(-12)};motionReceived.set(peer.id,receipt);
     peer.state._receivedAt=receipt.time;peer.state._rtt=receivedAt-sentAt;
+    peer.state._motionSamples=receipt.samples;
    }
    for(const id of motionReceived.keys())if(!present.has(id))motionReceived.delete(id);
    peers=result.peers;adapter.receive?.(result);list.textContent='Players: '+result.names.join(', ');
@@ -69,7 +70,7 @@ function mount(){
    else status.textContent='Room '+current.code+' • shared abilities ready';
    summary.textContent='Multiplayer · '+result.names.length+' online';
   }}catch(e){if(gen===generation){peers=[];status.textContent='Connection lost: '+e.message}}finally{busy=false}
- },100);
+ },75);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount);else mount();
 })();
