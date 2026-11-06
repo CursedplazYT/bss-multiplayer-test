@@ -21804,10 +21804,11 @@ function BeeSwarmSimulator(DATA){
     }
     function bssPoseScythe(matrix,sway=0,swing=0){
         const grip=vec3.transformQuat([],[-0.55,0.55,0.55],quat.fromEuler([],0,0,30))
-        mat4.translate(matrix,matrix,[0,0.50,0.42])
-        mat4.rotateZ(matrix,matrix,35*Math.PI/180+sway)
+        mat4.translate(matrix,matrix,[-0.50,-0.06,0.32])
+        mat4.rotateZ(matrix,matrix,-20*Math.PI/180+sway)
         mat4.rotateY(matrix,matrix,-Math.PI/2)
         mat4.rotateX(matrix,matrix,swing*0.06)
+        mat4.scale(matrix,matrix,[0.65,0.65,0.65])
         mat4.translate(matrix,matrix,grip.map(v=>-v))
     }
     function bssAvatarGripOffset(tool){
@@ -21826,20 +21827,6 @@ function BeeSwarmSimulator(DATA){
         const matrix=mat4.fromRotationTranslationScale([],rotation,center,[1,length,1])
         gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,matrix)
         bssGripArmMesh.render()
-        if(tool==='darkScythe'){
-            const second=vec3.transformQuat([],[-0.55,0.35,0.515],quat.fromEuler([],0,0,30))
-            const hand=vec3.transformMat4([],second,toolMatrix)
-            const root=vec3.transformMat4([],[0.43,0.24,0],bodyMatrix)
-            const delta=vec3.sub([],hand,root),len=vec3.length(delta)
-            if(len>0.001){
-                vec3.normalize(delta,delta)
-                const q=quat.rotationTo([],[0,1,0],delta)
-                const mid=vec3.scale([],vec3.add([],root,hand),0.5)
-                gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,mat4.fromRotationTranslationScale([],q,mid,[1,len,1]))
-                bssGripArmMesh.render()
-            }
-            return
-        }
         // The free arm pivots slightly at the shoulder while walking.
         const free=mat4.clone(bodyMatrix)
         mat4.translate(free,free,[0.45,0.30,0])
