@@ -21830,8 +21830,10 @@ function BeeSwarmSimulator(DATA){
         const free=mat4.clone(bodyMatrix)
         mat4.translate(free,free,[0.45,0.30,0])
         mat4.rotateX(free,free,Math.sin(phase)*0.26*walking)
-        mat4.translate(free,free,[0,-0.36,0])
-        mat4.scale(free,free,[1,0.72,1.25])
+        const bodyYScale=Math.hypot(bodyMatrix[4],bodyMatrix[5],bodyMatrix[6])
+        const armLength=length/bodyYScale
+        mat4.translate(free,free,[0,-armLength/2,0])
+        mat4.scale(free,free,[1,armLength,1.25])
         gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,free)
         bssGripArmMesh.render()
     }
@@ -22319,12 +22321,12 @@ function BeeSwarmSimulator(DATA){
                 const upper=(outline,thickness,color)=>shape(outline.map(([u,v])=>[460+(u-460)*1.30,370+(v-370)*1.25]),thickness,color)
                 const black=[0.025,0.022,0.03]
                 upper([[480,20],[401,198],[526,128],[428,224],[443,240],[436,252],[454,306],[448,312],[468,365],[451,373],[415,319],[408,310],[404,314],[390,274],[380,263],[344,263],[282,292],[243,320],[224,354],[205,436],[195,340],[207,312],[225,290],[352,222],[360,185]],0.23,black)
-                upper([[381,248],[390,273],[343,284],[291,312],[254,348],[231,396],[213,457],[211,390],[218,349],[237,317],[281,290],[348,252]],0.25,[0.66,0.018,0.035])
+                upper([[381,248],[390,273],[343,284],[291,312],[254,348],[231,396],[213,457],[211,390],[218,349],[237,317],[281,290],[348,252]].map(([u,v])=>[381+(u-381)*1.18,248+(v-248)*1.18]),0.25,[0.66,0.018,0.035])
                 // Shorten only the shaft along its axis, preserving its width and blade.
                 const handle=(outline,thickness,color)=>shape(outline.map(([u,v])=>{
                     const dx=57/Math.hypot(57,81),dy=81/Math.hypot(57,81)
                     const along=(u-460)*dx+(v-370)*dy
-                    return [u-along*0.60*dx,v-along*0.60*dy]
+                    return [u-along*0.40*dx,v-along*0.40*dy]
                 }),thickness,color)
                 handle([[451,369],[466,362],[508,450],[493,459]],0.15,[0.26,0.025,0.39])
                 handle([[493,459],[508,450],[529,479],[554,534],[518,507],[490,470]],0.18,[0.37,0.02,0.51])
