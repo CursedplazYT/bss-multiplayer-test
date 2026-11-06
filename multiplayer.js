@@ -1,6 +1,7 @@
 (()=>{
 'use strict';
 let adapter=null,peers=[],session=null,busy=false,generation=0,counter=0;
+const motionReceived=new Map();
 const base=()=>String(window.BSS_MULTIPLAYER_SERVER||'').replace(/\/$/,'');
 async function request(path,data){
  if(!base())throw Error('Server not configured.');
@@ -8,7 +9,7 @@ async function request(path,data){
  let result;try{result=await response.json()}catch{throw Error('Server waking up. Wait a minute and try again.')}
  if(!response.ok)throw Error(result.error||'Connection failed');return result;
 }
-function clear(){failedStages.clear();peers=[];adapter?.clear?.();adapter?.room?.(null)}
+function clear(){failedStages.clear();motionReceived.clear();peers=[];adapter?.clear?.();adapter?.room?.(null)}
 // Keep a replica rendering error from terminating the main game frame.
 const failedStages=new Set();
 function reportStage(stage,error){
@@ -51,13 +52,23 @@ function mount(){
  for(const event of ['keydown','keyup','pointerdown','touchstart'])panel.addEventListener(event,e=>e.stopPropagation());
  setInterval(async()=>{
   if(!session||!adapter||busy)return;busy=true;const current=session,gen=generation;
+  const sentAt=performance.now();
   try{const result=await request('/sync',{...current,state:adapter.snapshot()});if(gen===generation){
+   const receivedAt=performance.now(),present=new Set();
+   for(const peer of result.peers){
+    present.add(peer.id);if(!peer.state)continue;
+    const key=peer.state.motionSeq??JSON.stringify([peer.state.position,peer.state.rotation]);
+    const old=motionReceived.get(peer.id);
+    const receipt=old&&old.key===key?old:{key,time:receivedAt};motionReceived.set(peer.id,receipt);
+    peer.state._receivedAt=receipt.time;peer.state._rtt=receivedAt-sentAt;
+   }
+   for(const id of motionReceived.keys())if(!present.has(id))motionReceived.delete(id);
    peers=result.peers;adapter.receive?.(result);list.textContent='Players: '+result.names.join(', ');
    if(result.abilitySync!==1)status.textContent='Connected, but the server needs an update for frogs, bubbles and coconuts. Redeploy the updated server files.';
    else if(peers.some(p=>p.state&&(!Array.isArray(p.state.frogs)||!Array.isArray(p.state.coconuts))))status.textContent='Connected. A friend needs to refresh their game to share frogs and coconuts.';
    else status.textContent='Room '+current.code+' • connected • shared abilities ready';
   }}catch(e){if(gen===generation){peers=[];status.textContent='Connection lost: '+e.message}}finally{busy=false}
- },250);
+ },100);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount);else mount();
 })();

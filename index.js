@@ -21668,6 +21668,7 @@ function BeeSwarmSimulator(DATA){
         for(const key of ['hive','hiveEffects'])if(triggers[key]){triggers[key].minX+=delta;triggers[key].maxX+=delta}
         player.updateHive()
     }
+    let mpMotionSequence=0
     let mpAbilitySerial=0
     function mpAbilityId(entity){return entity.mpAbilityId||(entity.mpAbilityId=String(++mpAbilitySerial))}
     let mpCoconutSerial=0
@@ -21677,7 +21678,7 @@ function BeeSwarmSimulator(DATA){
             if(!m.mpId?.startsWith(mpSessionId+':'))m.mpId=mp.uid()
             return {id:m.mpId,type:m.type,field:m.field,pos:m.pos.slice(0,3),remaining:Math.max(0,m.pollenBefore-player.stats['pollenFrom'+m.field])}
         })
-        return {position:[player.body.position.x,player.body.position.y,player.body.position.z],rotation:Array.from(player.rotQuat),gear:player.currentGear,
+        return {position:[player.body.position.x,player.body.position.y,player.body.position.z],velocity:[player.body.velocity.x,player.body.velocity.y,player.body.velocity.z],motionSeq:++mpMotionSequence,rotation:Array.from(player.rotQuat),gear:player.currentGear,
             bees:objects.bees.slice(0,60).map(b=>({type:b.type,pos:b.pos.slice(0,3),dir:(b.moveDir?.length===3?b.moveDir:[0,0,1]).slice(),gifted:!!b.gifted})),
             hive:player.hive.map(row=>row.map(b=>b?{type:b.type,gifted:!!b.gifted,level:b.level}:null)),
             planters:objects.planters.map(p=>({type:p.type,pos:p.pos.slice(0,3),progress:Math.max(0,Math.min(1,p.growth/p.maxGrowth)),glistering:!!p.glistering})),
@@ -21873,10 +21874,8 @@ function BeeSwarmSimulator(DATA){
                     })
                     a.body.setBuffers();a.tool.setBuffers();a.signature=signature
                 }
-                a.walking=Math.min(1,vec3.distance(a.position,peer.state.position)*3)
-                const blend=Math.min(1,dt*12)
-                for(let i=0;i<3;i++)a.position[i]+=(peer.state.position[i]-a.position[i])*blend
-                const matrix=mat4.fromRotationTranslation([],peer.state.rotation,a.position)
+                bssUpdateRemoteMotion(a,peer.state,dt,performance.now())
+                const matrix=mat4.fromRotationTranslation([],a.rotation,a.position)
                 gl.uniformMatrix4fv(glCache.dynamic_modelMatrix,gl.FALSE,matrix)
                 const bodyMatrix=mat4.clone(matrix)
                 mat4.translate(bodyMatrix,bodyMatrix,[0,0.86,0])
@@ -36436,4 +36435,18 @@ function bssCoconutLandingTime(distance,speed){
     const h=Math.max(0,distance),v=Math.min(24,Math.max(0,speed))
     const untilCap=(24-v)/20,capDistance=v*untilCap+10*untilCap*untilCap
     return h<=capDistance?(Math.sqrt(v*v+40*h)-v)/20:untilCap+(h-capDistance)/24
+}
+
+// Bounded prediction avoids waiting for each network position while correcting smoothly.
+function bssUpdateRemoteMotion(avatar,state,dt,now){
+    const velocity=Array.isArray(state.velocity)&&state.velocity.length===3&&state.velocity.every(Number.isFinite)?state.velocity:[0,0,0]
+    const age=Math.max(0,(now-(state._receivedAt??now))/1000)
+    const lead=Math.min(0.18,age+Math.min(0.10,(state._rtt||0)/2000))
+    const target=state.position.map((v,i)=>v+velocity[i]*lead)
+    const error=Math.hypot(...target.map((v,i)=>v-avatar.position[i]))
+    const blend=1-Math.exp(-22*Math.max(0,Math.min(0.1,dt)))
+    for(let i=0;i<3;i++)avatar.position[i]=error>15?target[i]:avatar.position[i]+(target[i]-avatar.position[i])*blend
+    if(!avatar.rotation)avatar.rotation=state.rotation.slice()
+    else quat.slerp(avatar.rotation,avatar.rotation,state.rotation,blend)
+    avatar.walking=Math.min(1,Math.hypot(velocity[0],velocity[2])/3)
 }
