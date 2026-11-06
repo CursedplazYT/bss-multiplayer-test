@@ -18042,11 +18042,20 @@ function BeeSwarmSimulator(DATA){
             objects.mobs.splice(index,1)
         }
 
+        drawComboTarget(remaining){
+            const diameter=2*Math.sqrt(this.displaySize),pulse=1+Math.sin(TIME*12)*0.05
+            meshes.cylinder_explosions.instanceData.push(this.pos[0],this.pos[1]+0.01,this.pos[2],1,1,1,1,diameter*1.08*pulse,0.08)
+            meshes.cylinder_explosions.instanceData.push(this.pos[0],this.pos[1]+0.06,this.pos[2],0.02,0.55,1,1,diameter,0.10)
+            meshes.cylinder_explosions.instanceData.push(this.pos[0],this.pos[1]+0.13,this.pos[2],1,0.85,0,1,0.45,0.20)
+            textRenderer.addSingle(remaining===null?'GET READY':'CATCH HERE  '+remaining.toFixed(1)+'s',[this.pos[0],this.pos[1]+2,this.pos[2]],COLORS.whiteArr,0,false,false,0,1.15)
+        }
+
         update(){
             
             if(this.delay>0){
                 
                 this.delay-=dt
+                if(this.combo&&this.delay<=0.25)this.drawComboTarget(null)
                 
             } else {
                 
@@ -18057,21 +18066,12 @@ function BeeSwarmSimulator(DATA){
                 
                 if(this.combo){
                     this.drawComboTriangles()
-                    // Hide the target until the warning window opens; difficulty
-                    // comes from less warning, never an uncontrollably fast fall.
-                    const remaining=bssCoconutLandingTime(this.y+this.displaySize-this.pos[1],-this.vel)
-                    if(remaining<=bssCoconutWarningWindow(this.combo.kicks)){
-                        const diameter=2*Math.sqrt(this.displaySize),pulse=1+Math.sin(this.glow*12)*0.05
-                        meshes.cylinder_explosions.instanceData.push(this.pos[0],this.pos[1]+0.01,this.pos[2],1,1,1,1,diameter*1.08*pulse,0.08)
-                        meshes.cylinder_explosions.instanceData.push(this.pos[0],this.pos[1]+0.06,this.pos[2],0.02,0.55,1,1,diameter,0.10)
-                        meshes.cylinder_explosions.instanceData.push(this.pos[0],this.pos[1]+0.13,this.pos[2],1,0.85,0,1,0.45,0.20)
-                        textRenderer.addSingle('CATCH HERE  '+remaining.toFixed(1)+'s',[this.pos[0],this.pos[1]+2,this.pos[2]],COLORS.whiteArr,0,false,false,0,1.15)
-                    }
+                    this.drawComboTarget(bssCoconutLandingTime(this.y+this.displaySize-this.pos[1],-this.vel))
                 }else{
                 meshes.cylinder_explosions.instanceData.push(this.pos[0],this.pos[1],this.pos[2],this.isBigFatBully?1:0,this.isBigFatBully?0:1,0,this.glow*0.75,this.displaySize,0.001)
                 }
                 meshes.explosions.instanceData.push(this.pos[0],this.y,this.pos[2],1,1,1,0.15,-this.displaySize-1,1)
-                meshes.explosions.instanceData.push(this.pos[0],this.y,this.pos[2],0.3*player.isNight,0.1*player.isNight,0,1,this.displaySize,1)
+                meshes.explosions.instanceData.push(this.pos[0],this.y,this.pos[2],this.combo?0.55:0.3*player.isNight,this.combo?0.55:0.1*player.isNight,this.combo?0.55:0,1,this.displaySize,1)
                 
                 return this.y+this.displaySize<this.pos[1]
             }
@@ -36084,7 +36084,7 @@ function bssCoconutFallRate(catches){
     return Math.min(9,1+0.09*n+0.004*n*n)
 }
 function bssCoconutComboDelay(catches){
-    return Math.max(0.15,3*Math.pow(0.88,Math.max(0,(Number(catches)||1)-1)))
+    return Math.max(0.30,3*Math.pow(0.88,Math.max(0,(Number(catches)||1)-1)))
 }
 // BSS top Coconut Combo icon v5
 function updateBssCoconutBeltHud(player){
