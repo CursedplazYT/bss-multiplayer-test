@@ -11930,6 +11930,7 @@ function BeeSwarmSimulator(DATA){
             if(this.life<=0||this.mpPopped)return
             if(this.mpRemoteBubble&&player.fieldIn!==this.field)return
             this.mpPopped=true
+            if(mpSessionId){const key=(this.mpRemoteOwner||mpSessionId)+':'+(this.mpSourceId||mpAbilityId(this));mpBubblePops.set(key,performance.now());mpPendingBubblePops.add(key)}
             player.stats.bubbles++
 
             if(player.popStarActive){
@@ -12209,7 +12210,7 @@ function BeeSwarmSimulator(DATA){
                 
             } else {
                 
-                let dir=[this.moveTo[0]-this.pos[0],this.moveTo[1]-this.pos[2]],m=Math.sqrt(dir[0]*dir[0]+dir[1]*dir[1]),d=1/m,s=dt*d*4
+                let dir=[this.moveTo[0]-this.pos[0],this.moveTo[1]-this.pos[2]],m=Math.sqrt(dir[0]*dir[0]+dir[1]*dir[1]),d=1/Math.max(m,0.0001),s=Math.min(1,dt*d*4)
                 
                 this.pos[0]+=dir[0]*s
                 this.pos[2]+=dir[1]*s
@@ -12243,7 +12244,7 @@ function BeeSwarmSimulator(DATA){
                     
                     this.state=0
                     this.jumpDelay=0.5
-                    this.vel=0.12
+                    this.vel=7.2
                     this.pos[1]=this.y
                     this.jumpCount++
                     
@@ -12269,8 +12270,9 @@ function BeeSwarmSimulator(DATA){
                 }
                 
                 this.pos[3]=Math.atan2(dir[1]*d,dir[0]*d)+MATH.HALF_PI
-                this.vel-=dt*0.2
-                this.pos[1]=Math.max(this.pos[1]+this.vel,this.y)
+                const hopDt=Math.max(0,Math.min(dt,0.1))
+                this.pos[1]=Math.max(this.y,this.pos[1]+this.vel*hopDt-6*hopDt*hopDt)
+                this.vel-=12*hopDt
             
             }
             
@@ -16875,6 +16877,7 @@ function BeeSwarmSimulator(DATA){
                 }
             }
 
+            this.mpStarVisual={type:'popStar',pos:p.slice(0,3),angle:p[3]||0,size:this.size,value:this.value||0}
             gl.uniform4fv(glCache.mob_instanceInfo1,p)
             setStarAppearance(this.size,0.7)
             drawSsaStar(meshes.popStar)
@@ -16949,6 +16952,7 @@ function BeeSwarmSimulator(DATA){
                 this.particleTimer=0.1
             }
             
+            this.mpStarVisual={type:'scorchingStar',pos:p.slice(0,3),angle:p[3]||0,size:this.size,value:this.value||0}
             gl.uniform4fv(glCache.mob_instanceInfo1,p)
             setStarAppearance(this.size,1)
             drawSsaStar(meshes.scorchingStar)
@@ -17026,6 +17030,7 @@ function BeeSwarmSimulator(DATA){
             
             let p=[player.body.position.x+dir[0],player.body.position.y+this.size*2+Math.sin(TIME*3)*this.size-0.5,player.body.position.z+dir[2],-player.playerAngle+Math.PI]
             
+            this.mpStarVisual={type:'gummyStar',pos:p.slice(0,3),angle:p[3]||0,size:this.size,value:this.value||0}
             gl.uniform4fv(glCache.mob_instanceInfo1,p)
             setStarAppearance(this.size,0.9)
             drawSsaStar(meshes.gummyStar)
@@ -17075,6 +17080,7 @@ function BeeSwarmSimulator(DATA){
             
             let p=[player.body.position.x+dx,player.body.position.y+0.1,player.body.position.z+dz,TIME*10]
             
+            this.mpStarVisual={type:'starSaw',pos:p.slice(0,3),angle:p[3]||0,size:0.65,value:this.value||0}
             gl.uniform4fv(glCache.mob_instanceInfo1,p)
             setStarAppearance(0.65,1)
             drawSsaStar(meshes.starSaw)
@@ -17182,6 +17188,7 @@ function BeeSwarmSimulator(DATA){
             
             let p=[this.center[0]+st,this.center[1],this.center[2]+ct,TIME*2]
             
+            this.mpStarVisual={type:'guidingStar',pos:p.slice(0,3),angle:p[3]||0,size:1.5,value:this.value||0}
             gl.uniform4fv(glCache.mob_instanceInfo1,p)
             setStarAppearance(1.5,0.4)
             drawSsaStar(meshes.guidingStar)
@@ -17245,6 +17252,7 @@ function BeeSwarmSimulator(DATA){
             gl.vertexAttribPointer(glCache.mob_vertPos,3,gl.FLOAT,gl.FALSE,24,0)
             gl.vertexAttribPointer(glCache.mob_vertColor,3,gl.FLOAT,gl.FALSE,24,12)
             
+            this.mpStarVisual={type:'levitatingStarShower',pos:this.pos.slice(0,3),angle:this.pos[3]||0,size:Math.max(0.01,Math.min(this.life*3,1)*1.5),value:this.value||0}
             gl.uniform4fv(glCache.mob_instanceInfo1,this.pos)
             setStarAppearance(Math.min((this.life)*3,1)*1.5,Math.min((3-this.life)*0.5,1))
             drawSsaStar(meshes.levitatingStarShower)
@@ -17349,7 +17357,8 @@ function BeeSwarmSimulator(DATA){
                 gl.vertexAttribPointer(glCache.mob_vertPos,3,gl.FLOAT,gl.FALSE,24,0)
                 gl.vertexAttribPointer(glCache.mob_vertColor,3,gl.FLOAT,gl.FALSE,24,12)
                 
-                gl.uniform4fv(glCache.mob_instanceInfo1,this.pos)
+                this.mpStarVisual={type:'fallingStar',pos:this.pos.slice(0,3),angle:this.pos[3]||0,size:0.8,value:this.value||0}
+            gl.uniform4fv(glCache.mob_instanceInfo1,this.pos)
                 setStarAppearance(0.8,1)
                 drawSsaStar(meshes.fallingStar)
             }
@@ -21669,6 +21678,7 @@ function BeeSwarmSimulator(DATA){
         player.updateHive()
     }
     let mpMotionSequence=0
+    const mpPendingBubblePops=new Set(),mpBubblePops=new Map(),mpFrogViews=new Map(),mpStarViews=new Map()
     let mpAbilitySerial=0
     function mpAbilityId(entity){return entity.mpAbilityId||(entity.mpAbilityId=String(++mpAbilitySerial))}
     let mpCoconutSerial=0
@@ -21691,11 +21701,19 @@ function BeeSwarmSimulator(DATA){
             hiveBalloon:player.hiveBalloon.pollen>0?{pos:[player.hivePos[0]+1.5,player.hivePos[1]-1.5+player.hiveBalloon.displaySize*0.5,player.hivePos[2]+3],size:Math.max(0.1,player.hiveBalloon.displaySize||0.8)}:null,
             frogs:objects.mobs.filter(m=>m instanceof Frog&&m.life>0).slice(0,60).map(f=>({id:mpAbilityId(f),pos:f.pos.slice(0,3),angle:f.pos[3]||0,field:f.field,gifted:!!f.gifted,jumps:f.jumpCount})),
             bubbles:objects.bubbles.filter(b=>!b.mpRemoteBubble&&!b.mpPopped&&b.life>0).slice(0,200).map(b=>({id:mpAbilityId(b),field:b.field,x:b.x,z:b.z,life:b.life,golden:!!b.golden})),
+            bubblePops:[...mpPendingBubblePops].slice(-1000),
+            stars:objects.mobs.filter(m=>m.life>0&&m.mpStarVisual).slice(0,40).map(m=>({id:mpAbilityId(m),...m.mpStarVisual,life:m.life})),
             sprouts,fieldPollen,
             drops:objects.tokens.filter(t=>t.mpId?.startsWith(mpSessionId+':')&&!t.mpRemote&&!t.collected&&t.life>0).map(t=>({id:t.mpId,type:t.type,pos:t.pos.slice(0,3),amount:t.amount,life:t.life,source:t.from}))}
     }
     function mpReceive(data){
         mpShared={sprouts:data.sprouts||[],drops:data.drops||[]}
+        for(const key of data.poppedBubbles||[]){if(!mpBubblePops.has(key))mpBubblePops.set(key,performance.now());mpPendingBubblePops.delete(key)}
+        for(const b of objects.bubbles){
+            const key=(b.mpRemoteOwner||mpSessionId)+':'+(b.mpSourceId||b.mpAbilityId)
+            if(mpBubblePops.has(key)){b.life=0;b.mpPopped=true}
+        }
+        for(const [key,time]of mpBubblePops)if(performance.now()-time>60000)mpBubblePops.delete(key)
         const present=new Map(mpShared.drops.map(d=>[d.id,d]))
         for(const t of objects.tokens)if(t.mpId&&!t.collected){
             const d=present.get(t.mpId)
@@ -21715,7 +21733,7 @@ function BeeSwarmSimulator(DATA){
     function mpClear(){
         for(const a of mpHives.values())mpFreeMesh(a.mesh);mpHives.clear();mpBeePositions.clear()
         mpShared={sprouts:[],drops:[]}
-        mpSeenBubbles.clear();mpFrogJumps.clear()
+        mpSeenBubbles.clear();mpFrogJumps.clear();mpBubblePops.clear();mpPendingBubblePops.clear();mpFrogViews.clear();mpStarViews.clear()
         for(const b of objects.bubbles)if(b.mpRemoteBubble)b.life=0
         for(const t of objects.tokens)if(t.mpId){if(t.mpRemote)t.life=0;else{delete t.mpId;delete t.mpSeen}}
     }
@@ -21784,6 +21802,19 @@ function BeeSwarmSimulator(DATA){
         }
         for(const key of mpCoconutViews.keys())if(!present.has(key))mpCoconutViews.delete(key)
     }
+    function mpSmoothAbility(views,key,data,now){
+        let view=views.get(key)
+        if(!view){view={data,samples:[{time:now,pos:data.pos.slice()}],pos:data.pos.slice()};views.set(key,view)}
+        if(view.data!==data){view.data=data;view.samples.push({time:now,pos:data.pos.slice()});if(view.samples.length>20)view.samples.shift()}
+        const samples=view.samples,interval=samples.length>1?(samples.at(-1).time-samples[0].time)/(samples.length-1):150
+        const time=now-Math.max(150,Math.min(350,interval*1.5))
+        let left=samples[0],right=left
+        for(const sample of samples){right=sample;if(sample.time>=time)break;left=sample}
+        const t=right.time>left.time?Math.max(0,Math.min(1,(time-left.time)/(right.time-left.time))):0
+        const blend=1-Math.exp(-18*Math.max(0,dt))
+        for(let i=0;i<3;i++)view.pos[i]+=(left.pos[i]+(right.pos[i]-left.pos[i])*t-view.pos[i])*blend
+        return view.pos
+    }
     const mpSeenBubbles=new Map(),mpFrogJumps=new Map()
     function mpRenderSharedAbilities(peers){
         const now=performance.now(),frogKeys=new Set(),owners=new Set(peers.map(p=>p.id))
@@ -21796,37 +21827,39 @@ function BeeSwarmSimulator(DATA){
             }
             for(const data of state.bubbles||[]){
                 const key=peer.id+':'+data.id
-                if(mpSeenBubbles.has(key))continue
+                if(mpSeenBubbles.has(key)||mpBubblePops.has(key))continue
                 const field=fieldInfo[data.field]
                 if(!field||data.x<0||data.z<0||data.x>=field.width||data.z>=field.length)continue
                 const bubble=new Bubble(data.field,data.x,data.z,data.golden)
-                bubble.life=Math.min(10,data.life);bubble.mpRemoteBubble=true;bubble.mpRemoteOwner=peer.id
+                bubble.life=Math.min(10,data.life);bubble.mpRemoteBubble=true;bubble.mpRemoteOwner=peer.id;bubble.mpSourceId=data.id
                 objects.bubbles.push(bubble);mpSeenBubbles.set(key,now)
             }
             for(const frog of state.frogs||[]){
                 const key=peer.id+':'+frog.id;frogKeys.add(key)
-                mpMobMesh(frog.gifted?'giftedFrog':'frog',frog.pos,0.9,frog.angle)
+                const pose=mpSmoothAbility(mpFrogViews,key,frog,now)
+                mpMobMesh(frog.gifted?'giftedFrog':'frog',pose,0.9,frog.angle)
                 const previous=mpFrogJumps.get(key);mpFrogJumps.set(key,frog.jumps)
-                // A friend's frog can collect a nearby local token on a new jump,
-                // producing a personal bubble with the normal pollen rewards.
-                if(previous===undefined||frog.jumps<=previous||player.fieldIn!==frog.field)continue
-                const token=objects.tokens.find(t=>!t.collected&&t.life>0&&!(t instanceof DupedToken)&&vec3.sqrDist(t.pos,frog.pos)<(frog.gifted?14:9))
-                const field=fieldInfo[frog.field]
-                if(!token||!field)continue
-                const x=Math.round(token.pos[0]-field.x),z=Math.round(token.pos[2]-field.z)
-                if(x<0||z<0||x>=field.width||z>=field.length)continue
-                token.collect()
-                const bubble=new Bubble(frog.field,x,z,false)
-                bubble.mpRemoteBubble=true;bubble.mpRemoteOwner=peer.id;objects.bubbles.push(bubble)
+
             }
         }
         for(const b of objects.bubbles)if(b.mpRemoteBubble&&!owners.has(b.mpRemoteOwner))b.life=0
         for(const [key,time]of mpSeenBubbles)if(now-time>30000)mpSeenBubbles.delete(key)
-        for(const key of mpFrogJumps.keys())if(!frogKeys.has(key))mpFrogJumps.delete(key)
+        for(const key of mpFrogJumps.keys())if(!frogKeys.has(key)){mpFrogJumps.delete(key);mpFrogViews.delete(key)}
     }
     function mpRenderWorld(peers){
         mpRenderCoconuts(peers)
         mpRenderSharedAbilities(peers)
+        const starKeys=new Set(),starNow=performance.now()
+        for(const peer of peers)for(const star of peer.state?.stars||[]){
+            const key=peer.id+':'+star.id;starKeys.add(key)
+            const mesh=meshes[star.type];if(!mesh)continue
+            const pos=mpSmoothAbility(mpStarViews,key,star,starNow)
+            gl.bindBuffer(gl.ARRAY_BUFFER,mesh.vertBuffer);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,mesh.indexBuffer)
+            gl.vertexAttribPointer(glCache.mob_vertPos,3,gl.FLOAT,gl.FALSE,24,0);gl.vertexAttribPointer(glCache.mob_vertColor,3,gl.FLOAT,gl.FALSE,24,12)
+            gl.uniform4fv(glCache.mob_instanceInfo1,[...pos,star.angle]);setStarAppearance(star.size,0.7);drawSsaStar(mesh)
+            textRenderer.addSingle(peer.name+' • '+Math.ceil(star.life)+'s',[pos[0],pos[1]+star.size+0.4,pos[2]],COLORS.whiteArr,-1)
+        }
+        for(const key of mpStarViews.keys())if(!starKeys.has(key))mpStarViews.delete(key)
         for(const peer of peers)for(const p of peer.state?.planters||[]){
             mpMobMesh(p.type+'Planter',p.pos)
             const height={paper:1.5,pesticide:1.5,plenty:2.4}[p.type]||1.175
@@ -36453,7 +36486,8 @@ function bssCoconutLandingTime(distance,speed){
 // Buffer positions briefly and interpolate the path, rather than chasing each packet.
 function bssUpdateRemoteMotion(avatar,state,dt,now){
     const samples=state._motionSamples?.length?state._motionSamples:[{time:state._receivedAt??now,position:state.position,rotation:state.rotation,velocity:state.velocity}]
-    const renderTime=now-120
+    const interval=samples.length>1?(samples.at(-1).time-samples[0].time)/(samples.length-1):120
+    const renderTime=now-Math.max(160,Math.min(350,interval*1.5))
     let left=samples[0],right=left
     for(const sample of samples){
         if(sample.time<=renderTime)left=sample
@@ -36471,10 +36505,10 @@ function bssUpdateRemoteMotion(avatar,state,dt,now){
             const previous=samples[samples.length-2],seconds=(right.time-previous.time)/1000
             velocity=seconds>0?right.position.map((v,i)=>(v-previous.position[i])/seconds):[0,0,0]
         }
-        const lead=Math.min(0.08,Math.max(0,(renderTime-right.time)/1000))
+        const lead=Math.min(0.20,Math.max(0,(renderTime-right.time)/1000))
         if(Array.isArray(velocity)&&velocity.every(Number.isFinite))target=right.position.map((v,i)=>v+velocity[i]*lead)
     }
-    const step=Math.max(0,Math.min(0.1,dt)),blend=1-Math.exp(-30*step)
+    const step=Math.max(0,Math.min(0.1,dt)),blend=1-Math.exp(-14*step)
     const before=avatar.position.slice()
     // Limit corrections too: a delayed packet cannot create a one-frame teleport.
     let speed=0

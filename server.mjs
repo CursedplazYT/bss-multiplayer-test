@@ -19,7 +19,7 @@ export const server=http.createServer(async(req,res)=>{
  function send(status,body){res.writeHead(status,headers);res.end(JSON.stringify(body))}
  if(req.headers.origin&&req.headers.origin!==origin)return send(403,{error:'Origin blocked'});
  if(req.method==='OPTIONS'){res.writeHead(204,headers);return res.end()}
- if(req.method==='GET'&&req.url==='/health')return send(200,{ok:true,protocol:2,abilitySync:1,swingSync:1});
+ if(req.method==='GET'&&req.url==='/health')return send(200,{ok:true,protocol:2,abilitySync:1,swingSync:1,sharedVisuals:2});
  if(req.method!=='POST')return send(405,{error:'POST required'});
  try{
   let text='';for await(const chunk of req){text+=chunk;if(text.length>100000)throw fail(413,'Request too large')}
@@ -44,7 +44,7 @@ export const server=http.createServer(async(req,res)=>{
   if(req.url!=='/sync')throw fail(404,'Not found');
   if(now-p.lastSync<50)throw fail(429,'Too many updates');p.state=cleanState(data.state);p.seen=now;p.lastSync=now;
   const shared=updateWorld(room,p,data.state,now);
-  return send(200,{protocol:2,abilitySync:1,swingSync:1,...shared,peers:[...room.values()].filter(v=>v.id!==p.id).map(({id,name,state,slot})=>({id,name,state,slot})),names:[...room.values()].map(v=>v.name)});
+  return send(200,{protocol:2,abilitySync:1,swingSync:1,sharedVisuals:2,...shared,peers:[...room.values()].filter(v=>v.id!==p.id).map(({id,name,state,slot})=>({id,name,state,slot})),names:[...room.values()].map(v=>v.name)});
  }catch(e){send(e.status||500,{error:e.status?e.message:'Server error'})}
 });
 if(process.env.NODE_ENV!=='test')server.listen(Number(process.env.PORT)||3000,'0.0.0.0',()=>console.log('BSS room server ready'));
