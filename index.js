@@ -11927,7 +11927,9 @@ function BeeSwarmSimulator(DATA){
         }
         
         pop(){
-
+            if(this.life<=0||this.mpPopped)return
+            if(this.mpRemoteBubble&&player.fieldIn!==this.field)return
+            this.mpPopped=true
             player.stats.bubbles++
 
             if(player.popStarActive){
@@ -21666,6 +21668,8 @@ function BeeSwarmSimulator(DATA){
         for(const key of ['hive','hiveEffects'])if(triggers[key]){triggers[key].minX+=delta;triggers[key].maxX+=delta}
         player.updateHive()
     }
+    let mpAbilitySerial=0
+    function mpAbilityId(entity){return entity.mpAbilityId||(entity.mpAbilityId=String(++mpAbilitySerial))}
     let mpCoconutSerial=0
     function mpSnapshot(){
         const fieldPollen={};for(const field of Object.keys(fieldInfo))fieldPollen[field]=player.stats['pollenFrom'+field]||0
@@ -21682,6 +21686,10 @@ function BeeSwarmSimulator(DATA){
                 const rate=m.combo?bssCoconutFallRate(m.combo.kicks):1
                 return {id:m.mpCoconutId,bounce:m.combo?m.combo.kicks:0,pos:[m.pos[0],m.y,m.pos[2]],ground:m.pos[1],velocity:m.vel,delay:Math.max(0,m.delay),size:m.displaySize,combo:!!m.combo,gravity:20*rate*rate,terminal:m.combo?24*rate:2000}
             }),
+            balloons:objects.balloons.filter(b=>b.life>0||b.state==='moveToHive').slice(0,80).map(b=>({id:mpAbilityId(b),pos:b.pos.slice(0,3),size:Math.max(0.1,b.displaySize||b.size||0.8),golden:!!b.golden})),
+            hiveBalloon:player.hiveBalloon.pollen>0?{pos:[player.hivePos[0]+1.5,player.hivePos[1]-1.5+player.hiveBalloon.displaySize*0.5,player.hivePos[2]+3],size:Math.max(0.1,player.hiveBalloon.displaySize||0.8)}:null,
+            frogs:objects.mobs.filter(m=>m instanceof Frog&&m.life>0).slice(0,60).map(f=>({id:mpAbilityId(f),pos:f.pos.slice(0,3),angle:f.pos[3]||0,field:f.field,gifted:!!f.gifted,jumps:f.jumpCount})),
+            bubbles:objects.bubbles.filter(b=>!b.mpRemoteBubble&&!b.mpPopped&&b.life>0).slice(0,200).map(b=>({id:mpAbilityId(b),field:b.field,x:b.x,z:b.z,life:b.life,golden:!!b.golden})),
             sprouts,fieldPollen,
             drops:objects.tokens.filter(t=>t.mpId?.startsWith(mpSessionId+':')&&!t.mpRemote&&!t.collected&&t.life>0).map(t=>({id:t.mpId,type:t.type,pos:t.pos.slice(0,3),amount:t.amount,life:t.life,source:t.from}))}
     }
@@ -21706,6 +21714,8 @@ function BeeSwarmSimulator(DATA){
     function mpClear(){
         for(const a of mpHives.values())mpFreeMesh(a.mesh);mpHives.clear();mpBeePositions.clear()
         mpShared={sprouts:[],drops:[]}
+        mpSeenBubbles.clear();mpFrogJumps.clear()
+        for(const b of objects.bubbles)if(b.mpRemoteBubble)b.life=0
         for(const t of objects.tokens)if(t.mpId){if(t.mpRemote)t.life=0;else{delete t.mpId;delete t.mpSeen}}
     }
     function mpRenderHives(peers){
@@ -21744,11 +21754,11 @@ function BeeSwarmSimulator(DATA){
         }
         for(const key of mpBeePositions.keys())if(!visible.has(key))mpBeePositions.delete(key)
     }
-    function mpMobMesh(key,position,scale=1){
+    function mpMobMesh(key,position,scale=1,angle=0){
         const mesh=meshes[key];if(!mesh)return
         gl.bindBuffer(gl.ARRAY_BUFFER,mesh.vertBuffer);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,mesh.indexBuffer)
         gl.vertexAttribPointer(glCache.mob_vertPos,3,gl.FLOAT,gl.FALSE,24,0);gl.vertexAttribPointer(glCache.mob_vertColor,3,gl.FLOAT,gl.FALSE,24,12)
-        gl.uniform4fv(glCache.mob_instanceInfo1,[...position,0]);gl.uniform2f(glCache.mob_instanceInfo2,scale,1)
+        gl.uniform4fv(glCache.mob_instanceInfo1,[...position,angle]);gl.uniform2f(glCache.mob_instanceInfo2,scale,1)
         gl.drawElements(gl.TRIANGLES,mesh.indexAmount,gl.UNSIGNED_SHORT,0)
     }
     const mpCoconutViews=new Map()
@@ -21773,8 +21783,49 @@ function BeeSwarmSimulator(DATA){
         }
         for(const key of mpCoconutViews.keys())if(!present.has(key))mpCoconutViews.delete(key)
     }
+    const mpSeenBubbles=new Map(),mpFrogJumps=new Map()
+    function mpRenderSharedAbilities(peers){
+        const now=performance.now(),frogKeys=new Set(),owners=new Set(peers.map(p=>p.id))
+        for(const peer of peers){
+            const state=peer.state||{}
+            // Draw balloons only: never create Balloon objects, flower coverage or capacity buffs.
+            for(const balloon of [...(state.balloons||[]),...(state.hiveBalloon?[state.hiveBalloon]:[])]){
+                const [x,y,z]=balloon.pos,col=balloon.golden?[0.74,0.60,0.09]:[0,0,0.6]
+                meshes.explosions.instanceData.push(x,y,z,...col,0.65,balloon.size,1.03)
+            }
+            for(const data of state.bubbles||[]){
+                const key=peer.id+':'+data.id
+                if(mpSeenBubbles.has(key))continue
+                const field=fieldInfo[data.field]
+                if(!field||data.x<0||data.z<0||data.x>=field.width||data.z>=field.length)continue
+                const bubble=new Bubble(data.field,data.x,data.z,data.golden)
+                bubble.life=Math.min(10,data.life);bubble.mpRemoteBubble=true;bubble.mpRemoteOwner=peer.id
+                objects.bubbles.push(bubble);mpSeenBubbles.set(key,now)
+            }
+            for(const frog of state.frogs||[]){
+                const key=peer.id+':'+frog.id;frogKeys.add(key)
+                mpMobMesh(frog.gifted?'giftedFrog':'frog',frog.pos,0.9,frog.angle)
+                const previous=mpFrogJumps.get(key);mpFrogJumps.set(key,frog.jumps)
+                // A friend's frog can collect a nearby local token on a new jump,
+                // producing a personal bubble with the normal pollen rewards.
+                if(previous===undefined||frog.jumps<=previous||player.fieldIn!==frog.field)continue
+                const token=objects.tokens.find(t=>!t.collected&&t.life>0&&!(t instanceof DupedToken)&&vec3.sqrDist(t.pos,frog.pos)<(frog.gifted?14:9))
+                const field=fieldInfo[frog.field]
+                if(!token||!field)continue
+                const x=Math.round(token.pos[0]-field.x),z=Math.round(token.pos[2]-field.z)
+                if(x<0||z<0||x>=field.width||z>=field.length)continue
+                token.collect()
+                const bubble=new Bubble(frog.field,x,z,false)
+                bubble.mpRemoteBubble=true;bubble.mpRemoteOwner=peer.id;objects.bubbles.push(bubble)
+            }
+        }
+        for(const b of objects.bubbles)if(b.mpRemoteBubble&&!owners.has(b.mpRemoteOwner))b.life=0
+        for(const [key,time]of mpSeenBubbles)if(now-time>30000)mpSeenBubbles.delete(key)
+        for(const key of mpFrogJumps.keys())if(!frogKeys.has(key))mpFrogJumps.delete(key)
+    }
     function mpRenderWorld(peers){
         mpRenderCoconuts(peers)
+        mpRenderSharedAbilities(peers)
         for(const peer of peers)for(const p of peer.state?.planters||[]){
             mpMobMesh(p.type+'Planter',p.pos)
             const height={paper:1.5,pesticide:1.5,plenty:2.4}[p.type]||1.175

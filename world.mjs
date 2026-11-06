@@ -8,7 +8,12 @@ export function cleanExtras(s){
  const hive=(Array.isArray(s.hive)?s.hive:[]).slice(0,20).map(row=>(Array.isArray(row)?row:[]).slice(0,10).map(b=>b&&word(b.type)?{type:b.type,gifted:!!b.gifted,level:Math.max(1,Math.min(100,Math.floor(b.level)||1))}:null));
  const planters=(Array.isArray(s.planters)?s.planters:[]).slice(0,3).filter(p=>['paper','plastic','candy','redClay','blueClay','tacky','pesticide','petal','plenty'].includes(p.type)&&pos(p.pos)&&number(p.progress,1)&&p.progress>=0).map(p=>({type:p.type,pos:p.pos,progress:p.progress,glistering:!!p.glistering}));
  const coconuts=(Array.isArray(s.coconuts)?s.coconuts:[]).slice(0,40).filter(c=>c&&typeof c.id==='string'&&/^[0-9]{1,12}$/.test(c.id)&&pos(c.pos)&&number(c.ground)&&number(c.velocity,2000)&&number(c.delay,10)&&c.delay>=0&&number(c.size,10)&&c.size>0&&number(c.gravity,100000)&&c.gravity>0&&number(c.terminal,2000)&&c.terminal>0).map(c=>({id:c.id,bounce:Math.max(0,Math.min(100,Math.floor(c.bounce)||0)),pos:c.pos.slice(),ground:c.ground,velocity:c.velocity,delay:c.delay,size:c.size,combo:!!c.combo,gravity:c.gravity,terminal:c.terminal}));
- return {bees,hive,planters,coconuts};
+ const abilityId=x=>typeof x==='string'&&/^[0-9]{1,12}$/.test(x);
+ const balloons=(Array.isArray(s.balloons)?s.balloons:[]).slice(0,80).filter(b=>b&&abilityId(b.id)&&pos(b.pos)&&number(b.size,100)&&b.size>0).map(b=>({id:b.id,pos:b.pos.slice(),size:b.size,golden:!!b.golden}));
+ const h=s.hiveBalloon,hiveBalloon=h&&pos(h.pos)&&number(h.size,100)&&h.size>0?{pos:h.pos.slice(),size:h.size}:null;
+ const frogs=(Array.isArray(s.frogs)?s.frogs:[]).slice(0,60).filter(f=>f&&abilityId(f.id)&&pos(f.pos)&&word(f.field)&&number(f.angle,100)&&number(f.jumps,100000)&&f.jumps>=0).map(f=>({id:f.id,pos:f.pos.slice(),field:f.field,angle:f.angle,gifted:!!f.gifted,jumps:Math.floor(f.jumps)}));
+ const bubbles=(Array.isArray(s.bubbles)?s.bubbles:[]).slice(0,200).filter(b=>b&&abilityId(b.id)&&word(b.field)&&Number.isInteger(b.x)&&Number.isInteger(b.z)&&b.x>=0&&b.z>=0&&b.x<1000&&b.z<1000&&number(b.life,10)&&b.life>0).map(b=>({id:b.id,field:b.field,x:b.x,z:b.z,life:b.life,golden:!!b.golden}));
+ return {bees,hive,planters,coconuts,balloons,hiveBalloon,frogs,bubbles};
 }
 export function world(room){return room.world||(room.world={sprouts:new Map(),drops:new Map()})}
 export function updateWorld(room,p,s,now){
