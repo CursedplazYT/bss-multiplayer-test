@@ -16767,8 +16767,16 @@ function BeeSwarmSimulator(DATA){
     function activeMainStar(){
         return objects.mobs.find(m=>m.life>0&&(m instanceof PopStar||m instanceof ScorchingStar||m instanceof GummyStar))
     }
+    function finishMainStarCooldown(){
+        player.extraInfo.mainStarReadyAt=Date.now()+20000
+        for(const name of ['popStarPassive','scorchingStarPassive','gummyStarPassive']){
+            effects[name].currentCooldown=20
+            effects[name].currentVal=0
+            effects[name].startVal=player.stats[effects[name].triggerType]
+        }
+    }
     function spawnMainStar(Type){
-        if(activeMainStar())return false
+        if(activeMainStar()||Date.now()<(player.extraInfo.mainStarReadyAt||0))return false
         objects.mobs.push(new Type())
         return true
     }
@@ -16804,6 +16812,7 @@ function BeeSwarmSimulator(DATA){
         }
         
         die(index){
+            finishMainStarCooldown()
             
             player.popStarSize=0
             player.popStarActive=undefined
@@ -16894,6 +16903,7 @@ function BeeSwarmSimulator(DATA){
         }
         
         die(index){
+            finishMainStarCooldown()
             
             player.scorchingStarSize=0
             let dir=player.bodyDir.slice(),theta=TIME*2+MATH.THIRD_PI*2,st=Math.sin(theta)*(this.size+1),ct=Math.cos(theta)*(this.size+1)
@@ -16967,6 +16977,7 @@ function BeeSwarmSimulator(DATA){
         }
         
         die(index){
+            finishMainStarCooldown()
             
             player.gummyStarSize=0
             let dir=player.bodyDir.slice(),theta=TIME*2+MATH.THIRD_PI*4,st=Math.sin(theta)*(this.size+1),ct=Math.cos(theta)*(this.size+1)
@@ -34698,7 +34709,9 @@ function BeeSwarmSimulator(DATA){
                     
                     let e=effects[player.effects[i].type]
                     
-                    e.currentCooldown-=dt*10
+                    const mainStarPassive=e===effects.popStarPassive||e===effects.scorchingStarPassive||e===effects.gummyStarPassive
+                    if(mainStarPassive)e.currentCooldown=Math.max(0,((player.extraInfo.mainStarReadyAt||0)-Date.now())/1000)
+                    else e.currentCooldown-=dt*10
                     
                     if(e.currentCooldown>0){
                         
@@ -34717,7 +34730,7 @@ function BeeSwarmSimulator(DATA){
                             
                             // Keep earned tokens ready while another main star is active.
                             if((e===effects.popStarPassive||e===effects.scorchingStarPassive||e===effects.gummyStarPassive)&&activeMainStar())continue
-                            e.currentCooldown=e.maxCooldown
+                            e.currentCooldown=mainStarPassive?0:e.maxCooldown
                             e.activate()
                             passiveActivationPopup.style.display='block'
                             player.passivePopupTimer=2
@@ -36087,7 +36100,7 @@ function bssCoconutPreFallWarning(catches){
     return 0.5*Math.pow(0.85,Math.max(0,Number(catches)||0))
 }
 function bssCoconutComboDelay(catches){
-    return Math.max(bssCoconutPreFallWarning(catches)+0.05,3*Math.pow(0.88,Math.max(0,(Number(catches)||1)-1)))
+    return Math.min(0.30,Math.max(bssCoconutPreFallWarning(catches)+0.05,3*Math.pow(0.88,Math.max(0,(Number(catches)||1)-1))))
 }
 // BSS top Coconut Combo icon v5
 function updateBssCoconutBeltHud(player){
