@@ -13,11 +13,21 @@ export function cleanExtras(s){
  const h=s.hiveBalloon,hiveBalloon=h&&pos(h.pos)&&number(h.size,100)&&h.size>0?{pos:h.pos.slice(),size:h.size}:null;
  const frogs=(Array.isArray(s.frogs)?s.frogs:[]).slice(0,60).filter(f=>f&&abilityId(f.id)&&pos(f.pos)&&word(f.field)&&number(f.angle,100)&&number(f.jumps,100000)&&f.jumps>=0).map(f=>({id:f.id,pos:f.pos.slice(),field:f.field,angle:f.angle,gifted:!!f.gifted,jumps:Math.floor(f.jumps)}));
  const bubbles=(Array.isArray(s.bubbles)?s.bubbles:[]).slice(0,200).filter(b=>b&&abilityId(b.id)&&word(b.field)&&Number.isInteger(b.x)&&Number.isInteger(b.z)&&b.x>=0&&b.z>=0&&b.x<1000&&b.z<1000&&number(b.life,10)&&b.life>0).map(b=>({id:b.id,field:b.field,x:b.x,z:b.z,life:b.life,golden:!!b.golden}));
- return {bees,hive,planters,coconuts,balloons,hiveBalloon,frogs,bubbles};
+ const stars=(Array.isArray(s.stars)?s.stars:[]).slice(0,40).filter(t=>t&&abilityId(t.id)&&['popStar','scorchingStar','gummyStar','starSaw','guidingStar','levitatingStarShower','fallingStar'].includes(t.type)&&pos(t.pos)&&number(t.angle,100000)&&number(t.size,100)&&t.size>0&&number(t.life,1000)&&t.life>0).map(t=>({id:t.id,type:t.type,pos:t.pos.slice(),angle:t.angle,size:t.size,life:t.life}));
+ return {bees,hive,planters,coconuts,balloons,hiveBalloon,frogs,bubbles,stars};
 }
-export function world(room){return room.world||(room.world={sprouts:new Map(),drops:new Map()})}
+export function world(room){return room.world||(room.world={sprouts:new Map(),drops:new Map(),bubblePops:new Map()})}
 export function updateWorld(room,p,s,now){
  const w=world(room);
+ for(const [key,expires]of w.bubblePops)if(expires<now)w.bubblePops.delete(key);
+ for(const key of (Array.isArray(s.bubblePops)?s.bubblePops:[]).slice(0,1000)){
+  if(typeof key!=='string'||!/^([a-f0-9]{24}):([0-9]{1,12})$/.test(key))continue;
+  const [owner,id]=key.split(':');
+  if(w.bubblePops.has(key))continue;
+  const bubble=room.get(owner)?.state?.bubbles?.find(b=>b.id===id);
+  if(owner!==p.id&&!bubble)continue;
+  if(w.bubblePops.size<5000)w.bubblePops.set(key,now+60000);
+ }
  for(const [id,d]of w.drops)if(d.expires<now)w.drops.delete(id);
  for(const [id,sp]of w.sprouts)if(now-sp.seen>60000||!room.has(sp.owner))w.sprouts.delete(id);
  const ownedId=id=>typeof id==='string'&&id.startsWith(p.id+':')&&id.length<100;
@@ -38,7 +48,7 @@ export function updateWorld(room,p,s,now){
   if(w.drops.size>=1500)break;
   w.drops.set(d.id,{id:d.id,owner:p.id,ownerName:p.name,type:d.type,pos:d.pos,amount:d.amount,source:d.source,expires:now+Math.min(d.life,60)*1000,claimedBy:null});
  }
- return {sprouts:[...w.sprouts.values()],drops:[...w.drops.values()].filter(d=>!d.claimedBy).map(d=>({...d,life:Math.max(0,(d.expires-now)/1000)}))};
+ return {poppedBubbles:[...w.bubblePops.keys()],sprouts:[...w.sprouts.values()],drops:[...w.drops.values()].filter(d=>!d.claimedBy).map(d=>({...d,life:Math.max(0,(d.expires-now)/1000)}))};
 }
 export function claimDrop(room,p,id,now){
  const d=world(room).drops.get(id);
