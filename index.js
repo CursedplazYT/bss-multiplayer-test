@@ -21678,7 +21678,7 @@ function BeeSwarmSimulator(DATA){
             if(!m.mpId?.startsWith(mpSessionId+':'))m.mpId=mp.uid()
             return {id:m.mpId,type:m.type,field:m.field,pos:m.pos.slice(0,3),remaining:Math.max(0,m.pollenBefore-player.stats['pollenFrom'+m.field])}
         })
-        return {position:[player.body.position.x,player.body.position.y,player.body.position.z],velocity:[player.body.velocity.x,player.body.velocity.y,player.body.velocity.z],motionSeq:++mpMotionSequence,toolMotion:{seq:player.mpSwingSequence||0,phase:player.mpSwingSequence?Math.max(0,Math.min(4,player.toolRot)):4},rotation:Array.from(player.rotQuat),gear:player.currentGear,
+        return {position:[player.body.position.x,player.body.position.y,player.body.position.z],velocity:[player.body.velocity.x,player.body.velocity.y,player.body.velocity.z],motionSeq:++mpMotionSequence,swingVersion:1,toolMotion:{seq:player.mpSwingSequence||0,phase:player.mpSwingSequence?Math.max(0,Math.min(4,player.toolRot)):4},rotation:Array.from(player.rotQuat),gear:player.currentGear,
             bees:objects.bees.slice(0,60).map(b=>({type:b.type,pos:b.pos.slice(0,3),dir:(b.moveDir?.length===3?b.moveDir:[0,0,1]).slice(),gifted:!!b.gifted})),
             hive:player.hive.map(row=>row.map(b=>b?{type:b.type,gifted:!!b.gifted,level:b.level}:null)),
             planters:objects.planters.map(p=>({type:p.type,pos:p.pos.slice(0,3),progress:Math.max(0,Math.min(1,p.growth/p.maxGrowth)),glistering:!!p.glistering})),
@@ -36491,9 +36491,13 @@ function bssUpdateRemoteMotion(avatar,state,dt,now){
 function bssRemoteToolSwing(avatar,state,dt){
     const motion=state.toolMotion
     if(!motion)return 0
-    if(avatar.swingSeq!==motion.seq){
+    if(avatar.swingSeq===undefined){
         avatar.swingSeq=motion.seq
-        avatar.swingPhase=motion.phase
+        avatar.swingPhase=motion.phase>=4?4:Math.min(motion.phase,0.5)
+    }else if(avatar.swingSeq!==motion.seq){
+        avatar.swingSeq=motion.seq
+        // A new use is an event, even if the sampled animation already ended.
+        avatar.swingPhase=0
     }else avatar.swingPhase=Math.min(4,(avatar.swingPhase??4)+Math.max(0,dt)*10)
     return Math.max(0,2-Math.abs(avatar.swingPhase-2))*Math.PI/4
 }

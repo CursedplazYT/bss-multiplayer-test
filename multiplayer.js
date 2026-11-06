@@ -66,6 +66,8 @@ function mount(){
    for(const id of motionReceived.keys())if(!present.has(id))motionReceived.delete(id);
    peers=result.peers;adapter.receive?.(result);list.textContent='Players: '+result.names.join(', ');
    if(result.abilitySync!==1)status.textContent='Connected, but the server needs an update for frogs, bubbles and coconuts. Redeploy the updated server files.';
+   else if(result.swingSync!==1)status.textContent='Connected. Deploy the latest server/server.mjs to enable item swings.';
+   else if(peers.some(p=>p.state&&p.state.swingVersion!==1))status.textContent='Connected. A friend must refresh their page to share item swings.';
    else if(peers.some(p=>p.state&&(!Array.isArray(p.state.frogs)||!Array.isArray(p.state.coconuts))))status.textContent='Connected. A friend needs to refresh their game to share frogs and coconuts.';
    else status.textContent='Room '+current.code+' • shared abilities ready';
    summary.textContent='Multiplayer · '+result.names.length+' online';
