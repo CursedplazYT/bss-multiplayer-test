@@ -492,13 +492,8 @@ window.playerGear={
         
         none:{
             
-            mesh:function(box){
-                
-                box(-0.1,0.3,0.225,0.05,0.1,0.1,false,[0,0,0])
-                box(0.1,0.3,0.225,0.05,0.1,0.1,false,[0,0,0])
-                box(0,0.15,0.225,0.2,0.05,0.1,false,[0,0,0])
-                box(0,0.5,0,0.55,0.1,0.55,false,[0,0,0])
-            },applyStats:function(){}
+            // The block avatar owns its head and face; no old shirt-face or black band.
+            mesh:function(){},applyStats:function(){}
         },
 
         helmet:{

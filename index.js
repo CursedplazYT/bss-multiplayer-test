@@ -36411,13 +36411,10 @@ function drawBssBlockAvatar(box,cylinder,sphere,mask){
     box(-0.17,-0.60,0,0.30,0.50,0.34,false,green)
     box(0.17,-0.60,0,0.30,0.50,0.34,false,green)
     if(mask&&mask!=='none')return // The equipped mask fully covers the head.
-    cylinder(0,0.60,0,0.215,0.40,24,...yellow,90,0,0)
-    for(const side of [-1,1])sphere(side*0.072,0.64,0.206,0.038,2,...black)
-    for(let i=0;i<7;i++){
-        const angle=Math.PI*(0.14+0.72*i/6)
-        const x=Math.cos(angle)*0.10,y=0.56-Math.sin(angle)*0.075
-        sphere(x,y,Math.sqrt(0.215*0.215-x*x)+0.002,0.023,1,...black)
-    }
+    // Head bottom is 0.34, overlapping the torso top at 0.35.
+    cylinder(0,0.54,0,0.215,0.40,24,...yellow,90,0,0)
+    for(const side of [-1,1])box(side*0.07,0.59,0.208,0.035,0.07,0.018,false,black)
+    box(0,0.45,0.215,0.14,0.035,0.018,false,black)
 }
 
 // Guard pointer-lock transition spikes and avoid the exact vertical camera pole.
