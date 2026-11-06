@@ -22320,8 +22320,13 @@ function BeeSwarmSimulator(DATA){
                 const shape=(outline,thickness,color)=>box.bssDarkScythePrism(outline.map(point),thickness,color)
                 const upper=(outline,thickness,color)=>shape(outline.map(([u,v])=>[460+(u-460)*1.30,370+(v-370)*1.25]),thickness,color)
                 const black=[0.025,0.022,0.03]
-                upper([[480,20],[401,198],[526,128],[428,224],[443,240],[436,252],[454,306],[448,312],[468,365],[451,373],[415,319],[408,310],[404,314],[390,274],[380,263],[344,263],[282,292],[243,320],[224,354],[205,436],[195,340],[207,312],[225,290],[352,222],[360,185]],0.23,black)
-                upper([[381,248],[390,273],[343,284],[291,312],[254,348],[231,396],[213,457],[211,390],[218,349],[237,317],[281,290],[348,252]].map(([u,v])=>[381+(u-381)*1.18,248+(v-248)*1.18]),0.25,[0.66,0.018,0.035])
+                upper([[480,20],[401,198],[526,128],[428,224],[443,240],[436,252],[454,306],[448,312],[468,365],[451,373],[415,319],[408,310],[404,314],[390,274],[380,263],[352,222],[360,185]],0.23,black)
+                // Both colors follow one blade outline: longer reach, shallower hook.
+                const blade=[[381,248],[390,273],[343,284],[291,312],[254,348],[231,396],[213,457],[211,390],[218,349],[237,317],[281,290],[348,252]].map(([u,v])=>[381+(u-381)*1.40,248+(v-248)*0.65])
+                const bladeCenter=blade.reduce((sum,p)=>[sum[0]+p[0]/blade.length,sum[1]+p[1]/blade.length],[0,0])
+                const backing=blade.map(([u,v])=>[bladeCenter[0]+(u-bladeCenter[0])*1.10,bladeCenter[1]+(v-bladeCenter[1])*1.14])
+                upper(backing,0.23,black)
+                upper(blade,0.25,[0.66,0.018,0.035])
                 // Shorten only the shaft along its axis, preserving its width and blade.
                 const handle=(outline,thickness,color)=>shape(outline.map(([u,v])=>{
                     const dx=57/Math.hypot(57,81),dy=81/Math.hypot(57,81)
