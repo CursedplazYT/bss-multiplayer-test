@@ -21806,7 +21806,8 @@ function BeeSwarmSimulator(DATA){
         const grip=vec3.transformQuat([],[-0.55,0.55,0.55],quat.fromEuler([],0,0,30))
         mat4.translate(matrix,matrix,[-0.50,-0.06,0.32])
         mat4.rotateZ(matrix,matrix,sway)
-        mat4.rotateX(matrix,matrix,swing*0.06)
+        mat4.rotateZ(matrix,matrix,swing*0.55)
+        mat4.rotateX(matrix,matrix,-swing*0.25)
         mat4.scale(matrix,matrix,[0.65,0.65,0.65])
         mat4.translate(matrix,matrix,grip.map(v=>-v))
     }
@@ -22324,7 +22325,7 @@ function BeeSwarmSimulator(DATA){
                 // Both colors follow one blade outline: longer reach, shallower hook.
                 const blade=[[381,248],[390,273],[343,284],[291,312],[254,348],[231,396],[213,457],[211,390],[218,349],[237,317],[281,290],[348,252]].map(([u,v])=>[381+(u-381)*1.40,248+(v-248)*0.65])
                 const bladeCenter=blade.reduce((sum,p)=>[sum[0]+p[0]/blade.length,sum[1]+p[1]/blade.length],[0,0])
-                const backing=blade.map(([u,v])=>[bladeCenter[0]+(u-bladeCenter[0])*1.10,bladeCenter[1]+(v-bladeCenter[1])*1.14])
+                const backing=blade.map(([u,v])=>[bladeCenter[0]+(u-bladeCenter[0])*1.10,bladeCenter[1]+(v-bladeCenter[1])*1.28-14])
                 upper(backing,0.23,black)
                 upper(blade,0.25,[0.66,0.018,0.035])
                 // Shorten only the shaft along its axis, preserving its width and blade.
