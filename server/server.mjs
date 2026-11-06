@@ -9,14 +9,17 @@ function cleanState(s){
  if(!Array.isArray(s.rotation)||s.rotation.length!==4||!s.rotation.every(Number.isFinite))throw fail(400,'Invalid rotation');
  const length=Math.hypot(...s.rotation);if(length<0.5||length>1.5)throw fail(400,'Invalid rotation');
  const gear={};for(const [k,v]of Object.entries(s.gear||{}))if(/^[a-zA-Z]{1,30}$/.test(k)&&typeof v==='string'&&/^[a-zA-Z0-9]{1,50}$/.test(v))gear[k]=v;
- return {position:s.position,rotation:s.rotation.map(n=>n/length),gear,...cleanExtras(s)};
+ const velocity=Array.isArray(s.velocity)&&s.velocity.length===3&&s.velocity.every(n=>Number.isFinite(n)&&Math.abs(n)<=200)?s.velocity:[0,0,0];
+ const t=s.toolMotion;
+ const toolMotion=t&&Number.isSafeInteger(t.seq)&&t.seq>=0&&Number.isFinite(t.phase)?{seq:t.seq,phase:Math.max(0,Math.min(4,t.phase))}:{seq:0,phase:4};
+ return {position:s.position,velocity,toolMotion,swingVersion:s.swingVersion===1?1:0,motionSeq:Number.isSafeInteger(s.motionSeq)&&s.motionSeq>=0?s.motionSeq:0,rotation:s.rotation.map(n=>n/length),gear,...cleanExtras(s)};
 }
 export const server=http.createServer(async(req,res)=>{
  const headers={'Content-Type':'application/json','Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'Content-Type','Access-Control-Allow-Methods':'POST, OPTIONS','Cache-Control':'no-store'};
  function send(status,body){res.writeHead(status,headers);res.end(JSON.stringify(body))}
  if(req.headers.origin&&req.headers.origin!==origin)return send(403,{error:'Origin blocked'});
  if(req.method==='OPTIONS'){res.writeHead(204,headers);return res.end()}
- if(req.method==='GET'&&req.url==='/health')return send(200,{ok:true,protocol:2,abilitySync:1});
+ if(req.method==='GET'&&req.url==='/health')return send(200,{ok:true,protocol:2,abilitySync:1,swingSync:1});
  if(req.method!=='POST')return send(405,{error:'POST required'});
  try{
   let text='';for await(const chunk of req){text+=chunk;if(text.length>100000)throw fail(413,'Request too large')}
@@ -39,9 +42,9 @@ export const server=http.createServer(async(req,res)=>{
   if(req.url==='/claim')return send(200,claimDrop(room,p,data.dropId,now));
   if(req.url==='/leave'){room.delete(p.id);return send(200,{ok:true,protocol:2})}
   if(req.url!=='/sync')throw fail(404,'Not found');
-  if(now-p.lastSync<80)throw fail(429,'Too many updates');p.state=cleanState(data.state);p.seen=now;p.lastSync=now;
+  if(now-p.lastSync<50)throw fail(429,'Too many updates');p.state=cleanState(data.state);p.seen=now;p.lastSync=now;
   const shared=updateWorld(room,p,data.state,now);
-  return send(200,{protocol:2,abilitySync:1,...shared,peers:[...room.values()].filter(v=>v.id!==p.id).map(({id,name,state,slot})=>({id,name,state,slot})),names:[...room.values()].map(v=>v.name)});
+  return send(200,{protocol:2,abilitySync:1,swingSync:1,...shared,peers:[...room.values()].filter(v=>v.id!==p.id).map(({id,name,state,slot})=>({id,name,state,slot})),names:[...room.values()].map(v=>v.name)});
  }catch(e){send(e.status||500,{error:e.status?e.message:'Server error'})}
 });
 if(process.env.NODE_ENV!=='test')server.listen(Number(process.env.PORT)||3000,'0.0.0.0',()=>console.log('BSS room server ready'));
