@@ -21806,8 +21806,8 @@ function BeeSwarmSimulator(DATA){
         const grip=vec3.transformQuat([],[-0.55,0.55,0.55],quat.fromEuler([],0,0,30))
         mat4.translate(matrix,matrix,[-0.50,-0.06,0.32])
         mat4.rotateZ(matrix,matrix,sway)
-        mat4.rotateZ(matrix,matrix,swing*0.55)
-        mat4.rotateX(matrix,matrix,-swing*0.25)
+        // Original downward chop around the horizontal axis, with no sideways sweep.
+        mat4.rotateX(matrix,matrix,swing*0.65)
         mat4.scale(matrix,matrix,[0.65,0.65,0.65])
         mat4.translate(matrix,matrix,grip.map(v=>-v))
     }
