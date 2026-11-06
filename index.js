@@ -21885,7 +21885,9 @@ function BeeSwarmSimulator(DATA){
                 const swing=bssRemoteToolSwing(a,peer.state,dt)
                 const velocity=peer.state.velocity||[0,0,0]
                 a.armPhase=(a.armPhase||0)+dt*(3+Math.hypot(velocity[0],velocity[2])*1.8)*(a.walking||0)
-                const sway=Math.sin(a.armPhase)*0.065*(a.walking||0)
+                const walkSwing=Math.sin(a.armPhase)*0.14*(a.walking||0)
+                mat4.translate(heldTool,heldTool,[0,0,walkSwing])
+                const sway=0
                 if(peer.state.gear.tool==='darkScythe')bssPoseScythe(heldTool,sway,swing)
                 else{
                     mat4.rotateZ(heldTool,heldTool,sway)
@@ -27128,7 +27130,9 @@ function BeeSwarmSimulator(DATA){
             const walking=bssAvatarWalking(out)
             const moveSpeed=Math.hypot(out.body.velocity.x,out.body.velocity.z)
             out.avatarArmPhase=(out.avatarArmPhase||0)+dt*(3+moveSpeed*1.8)*walking
-            const sway=Math.sin(out.avatarArmPhase)*0.065*walking
+            const walkSwing=Math.sin(out.avatarArmPhase)*0.14*walking
+            mat4.translate(out.toolMatrix,out.toolMatrix,[0,0,walkSwing])
+            const sway=0
             const swing=Math.max(0,(-Math.abs(out.toolRot-2)+2)*MATH.QUATER_PI)
             if(out.currentGear.tool==='darkScythe')bssPoseScythe(out.toolMatrix,sway,swing)
             else{
