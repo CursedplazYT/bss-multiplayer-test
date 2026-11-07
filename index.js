@@ -17995,6 +17995,7 @@ function BeeSwarmSimulator(DATA){
         }
 
         die(index){
+            let startsCombo=false
             const forcedMiss=!!(this.combo&&this.combo.kicks>=100)
             if(forcedMiss)player.addMessage('Coconut Combo complete: 100 catches! The next coconut cannot be caught.')
             // Original coconut thud, once per landing.
@@ -18016,7 +18017,7 @@ function BeeSwarmSimulator(DATA){
                     // Catch sound is played once by the landing handler.
                     if(!this.combo&&recordBssSoloCoconutCatch(player,this.field)){
                         this.combo={stacks:0,kicks:0,lastField:null,colorHistory:{},lockedField:this.field}
-                        gameAudio.effect('coconutComboIntro')
+                        startsCombo=true
                         player.addMessage('Coconut Combo ready! Keep catching the blue circles.')
                     }
                     player.stats.fallingCoconuts++
@@ -18058,7 +18059,11 @@ function BeeSwarmSimulator(DATA){
                     advanceBssCoconutCombo(this.combo,this.field,bssComboFieldColor(fieldInfo[this.field]))
                     player.bssCoconutJuggle={active:true,kicks:this.combo.kicks,stacks:this.combo.stacks,updatedAt:Date.now()}
                     gameAudio.setComboActive(true)
-                    if(this.combo.kicks>0){
+                    if(startsCombo){
+                        // Keep the same opening countdown if the sound is muted or fails to play.
+                        this.comboIntroUntil=performance.now()+5128
+                        this.comboIntroAudio=gameAudio.effect('coconutComboIntro')
+                    }else if(this.combo.kicks>0){
                         const soundStep=(this.combo.kicks-1)%4+1
                         gameAudio.effect('coconutCombo'+soundStep,bssCoconutCatchRate(this.combo.kicks))
                         if(this.combo.kicks%4===0)gameAudio.effect('coconutComboBass'+((this.combo.kicks/4-1)%4+1),bssCoconutCatchRate(this.combo.kicks))
@@ -18070,7 +18075,7 @@ function BeeSwarmSimulator(DATA){
                         const next=bssNextComboLanding(f,player.body.position.x,player.body.position.z,this.combo.kicks)
                         this.x=next.x;this.z=next.z
                         this.pos=[f.x+this.x,f.y+0.51,f.z+this.z]
-                        this.y=this.pos[1]+25;this.vel=0;this.glow=0;this.delay=bssCoconutComboDelay(this.combo.kicks)
+                        this.y=this.pos[1]+25;this.vel=0;this.glow=0;this.delay=startsCombo?0:bssCoconutComboDelay(this.combo.kicks)
                         // Reuse the pool; existing triangles fade where they were emitted.
                         this.comboTriangleTimer=0
                         return
@@ -18092,7 +18097,21 @@ function BeeSwarmSimulator(DATA){
             textRenderer.addSingle(remaining===null?'GET READY':'CATCH HERE  '+remaining.toFixed(1)+'s',[this.pos[0],this.pos[1]+2,this.pos[2]],COLORS.whiteArr,0,false,false,0,1.15)
         }
 
+        waitingForComboIntro(){
+            if(this.comboIntroUntil===undefined)return false
+            const audio=this.comboIntroAudio
+            return performance.now()<this.comboIntroUntil||!!(audio&&!audio.paused&&!audio.ended)
+        }
+
         update(){
+            if(this.comboIntroUntil!==undefined){
+                if(this.waitingForComboIntro()){
+                    this.drawComboTarget(null)
+                    return
+                }
+                this.comboIntroUntil=undefined
+                this.comboIntroAudio=null
+            }
             
             if(this.delay>0){
                 
@@ -21688,9 +21707,25 @@ function BeeSwarmSimulator(DATA){
     // Network replicas are rendered only. They never run another player's Bee,
     // Planter or Sprout update/harvest functions and cannot mutate that save.
     const mp=window.BSSMultiplayer,mpHives=new Map(),mpBeePositions=new Map()
+    const mpHiveBackings=new Map()
     let mpShared={sprouts:[],drops:[]},mpIncomingDrop=false,mpSessionId=null,mpOwnedHiveslot=0
     function mpFreeMesh(m){if(m?.mesh?.buffers){gl.deleteBuffer(m.mesh.buffers.verts);gl.deleteBuffer(m.mesh.buffers.index);m.mesh.buffers=null}}
     function mpHome(slot){return [7.375-slot*8,1.5,-7.5]}
+    function mpDrawHiveBacking(slot){
+        // The original map already has the gold board for slot zero.
+        if(!Number.isInteger(slot)||slot<1||slot>5)return
+        let board=mpHiveBackings.get(slot)
+        if(!board){
+            const [x,,z]=mpHome(slot)
+            board=new Mesh(true)
+            board.setMeshFromFunction(box=>{
+                box(x+1.625,-0.01,z-0.55,5,25,0.5,false,[1.1,0.9,0.1],false,false)
+            })
+            board.setBuffers()
+            mpHiveBackings.set(slot,board)
+        }
+        board.render()
+    }
     function mpSetHome(slot){
         if(mpOwnedHiveslot===slot)return
         mpOwnedHiveslot=slot
@@ -21797,7 +21832,9 @@ function BeeSwarmSimulator(DATA){
             coconuts:objects.mobs.filter(m=>m instanceof Coconut&&!m.isBigFatBully).slice(0,40).map(m=>{
                 if(!m.mpCoconutId)m.mpCoconutId=String(++mpCoconutSerial)
                 const rate=m.combo?bssCoconutFallRate(m.combo.kicks):1
-                return {id:m.mpCoconutId,bounce:m.combo?m.combo.kicks:0,pos:[m.pos[0],m.y,m.pos[2]],ground:m.pos[1],velocity:m.vel,delay:Math.max(0,m.delay),size:m.displaySize,combo:!!m.combo,gravity:20*rate*rate,terminal:m.combo?24*rate:2000}
+                // Keep the remote prediction hidden while the first coconut is waiting for its intro.
+                const delay=m.waitingForComboIntro()?1:Math.max(0,m.delay)
+                return {id:m.mpCoconutId,bounce:m.combo?m.combo.kicks:0,pos:[m.pos[0],m.y,m.pos[2]],ground:m.pos[1],velocity:m.vel,delay,size:m.displaySize,combo:!!m.combo,gravity:20*rate*rate,terminal:m.combo?24*rate:2000}
             }),
             balloons:objects.balloons.filter(b=>b.life>0||b.state==='moveToHive').slice(0,80).map(b=>({id:mpAbilityId(b),pos:b.pos.slice(0,3),size:Math.max(0.1,b.displaySize||b.size||0.8),golden:!!b.golden})),
             hiveBalloon:player.hiveBalloon.pollen>0?{pos:[player.hivePos[0]+1.5,player.hivePos[1]-1.5+player.hiveBalloon.displaySize*0.5,player.hivePos[2]+3],size:Math.max(0.1,player.hiveBalloon.displaySize||0.8)}:null,
@@ -21850,6 +21887,13 @@ function BeeSwarmSimulator(DATA){
         for(const t of objects.tokens)if(t.mpId){if(t.mpRemote)t.life=0;else{delete t.mpId;delete t.mpSeen}}
     }
     function mpRenderHives(peers){
+        gl.bindTexture(gl.TEXTURE_2D,textures.default)
+        try{
+            mpDrawHiveBacking(mpOwnedHiveslot)
+            for(const peer of peers)if(peer.state?.hive)mpDrawHiveBacking(peer.slot)
+        }finally{
+            gl.bindTexture(gl.TEXTURE_2D,textures.bees)
+        }
         const present=new Set(peers.map(p=>p.id))
         for(const [id,a]of mpHives)if(!present.has(id)){mpFreeMesh(a.mesh);mpHives.delete(id)}
         for(const peer of peers){
@@ -21859,8 +21903,6 @@ function BeeSwarmSimulator(DATA){
             if(!a){a={mesh:new Mesh(true)};mpHives.set(peer.id,a)}
             if(a.signature!==signature){
                 a.mesh.setMeshFromFunction((box,slot,c,s,r,ring)=>{
-                    // Board is visual only; no collision or harvest triggers.
-                    box(home[0]+1.6,5,home[2]-0.3,5,12,0.2,false,[0.38,0.25,0.05],false,false)
                     rows.forEach((row,y)=>row.forEach((b,x)=>{
                         const type=b&&beeInfo[b.type]?b.type:null
                         slot(home[0]+x*0.8,home[1]+y*0.8-2.25,home[2],0.35,0.35,type,!!b?.gifted)
@@ -35998,6 +36040,7 @@ function createBssAudio(){
         const done=()=>{playing.delete(a);a.removeAttribute('src');a.load();volumes()}
         a.addEventListener('ended',done,{once:true});a.addEventListener('error',done,{once:true})
         const p=a.play();volumes();if(p)p.catch(done)
+        return a
     }
     // A music area always has finite X, Y and Z bounds.
     function insideMusicBox(pos,b,padding=0){
@@ -36355,7 +36398,7 @@ function grantBssCoconutCombo(player,stacks,now=Date.now()){
 }
 function bssCoconutComboBonuses(stacks){
     const n=Math.max(1,Math.min(100,stacks)),t=(n-1)/99
-    return {pollen:1.4+1.6*t,color:1+0.01*n,attack:1+0.01*n,honey:1+0.01*n,unique:0.25+0.5*t}
+    return {pollen:1.5+2*t,color:1+0.0125*n,attack:1+0.0125*n,honey:1+0.0125*n,unique:0.25+0.5*t}
 }
 function applyBssCoconutComboStats(player,now=Date.now()){
     const buff=player.extraInfo.coconutCombo
@@ -36381,9 +36424,9 @@ function bssCoconutBeltPollenMultiplier(player,field,bee){
 function bssCoconutCatchRate(catches){
     return 1+Math.min(1,Math.max(0,Number(catches)||0)*0.01)
 }
-// Fall speed stops increasing at six catches; warning time keeps shrinking.
+// Fall speed stops increasing at five catches; warning time keeps shrinking.
 function bssCoconutFallRate(catches){
-    return Math.pow(1.15,Math.min(6,Math.max(0,Number(catches)||0)))
+    return Math.pow(1.15,Math.min(5,Math.max(0,Number(catches)||0)))
 }
 function bssCoconutPreFallWarning(catches){
     return 0.5*Math.pow(0.85,Math.max(0,Number(catches)||0))
