@@ -38,11 +38,12 @@ function mount(){
  for(const input of [name,code]){input.style.cssText='display:block;margin:8px 0;width:240px;height:25px;color:black;background:white;box-sizing:border-box';panel.append(input)}
  async function connect(create,roomCode=code.value){
   if(!adapter){status.textContent='Start your game first.';return}
-  const old=session,gen=++generation;session=null;clear();if(old)request('/leave',old).catch(()=>{});status.textContent='Connecting…';
+  const old=session,gen=++generation;session=null;resetChat();clear();if(old)request('/leave',old).catch(()=>{});status.textContent='Connecting…';
   try{const result=await request(create?'/create':'/join',{name:name.value,code:roomCode});
    if(gen!==generation){request('/leave',result).catch(()=>{});return}
    if(result.protocol!==2){request('/leave',result).catch(()=>{});throw Error('Update the Render server files to version 2 first.')}
    session=result;adapter.room?.(result);code.value=result.code;status.textContent='Room '+result.code+' • connected';
+   chat.hidden=false;
   }catch(e){if(gen===generation)status.textContent=e.message}
  }
  const buttons=document.createElement('div');buttons.style.cssText='display:flex;gap:5px;flex-wrap:wrap';panel.append(buttons);
@@ -50,6 +51,82 @@ function mount(){
   const b=document.createElement('button');b.type='button';b.textContent=label;b.style.cssText='position:static;display:inline-block;width:auto;height:auto;min-height:30px;padding:5px 8px;margin:0;font:13px Arial;white-space:nowrap;color:#111;background:#eee';b.onclick=onClick;
   return b;
  }
+ const chat=document.createElement('section');
+ chat.setAttribute('aria-label','Room chat');
+ chat.style.cssText='margin-top:10px;border-top:1px solid #777;padding-top:8px';
+ const chatTitle=document.createElement('strong');
+ chatTitle.textContent='Room chat';
+ const chatLog=document.createElement('div');
+ chatLog.setAttribute('role','log');
+ chatLog.setAttribute('aria-label','Room messages');
+ chatLog.tabIndex=0;
+ chatLog.style.cssText='height:min(140px,22vh);overflow-y:auto;overflow-wrap:anywhere;user-select:text;background:#222;padding:6px;margin:6px 0;border-radius:4px';
+ const chatStatus=document.createElement('div');
+ chatStatus.setAttribute('role','status');
+ chatStatus.style.cssText='font-size:12px;margin:4px 0';
+ const chatForm=document.createElement('form');
+ chatForm.style.cssText='display:flex;gap:5px;align-items:center';
+ const chatInput=document.createElement('input');
+ chatInput.placeholder='Message your room';
+ chatInput.setAttribute('aria-label','Message your room');
+ chatInput.maxLength=200;
+ chatInput.autocomplete='off';
+ chatInput.style.cssText='flex:1;min-width:0;color:#111;background:#fff;padding:0 6px';
+ const chatSend=makeButton('Send',null);
+ chatSend.type='submit';
+ chatForm.append(chatInput,chatSend);
+ chat.append(chatTitle,chatLog,chatForm,chatStatus);
+ let chatAfter=0;
+ function resetChat(){
+  chat.hidden=true;
+  chatAfter=0;
+  chatLog.replaceChildren();
+  chatInput.value='';
+  chatInput.disabled=chatSend.disabled=true;
+  chatStatus.textContent='';
+ }
+ resetChat();
+ function receiveChat(messages){
+  if(!Array.isArray(messages)){
+   chatStatus.textContent='Room chat requires the updated server.';
+   return;
+  }
+  chatInput.disabled=false;
+  if(chatStatus.textContent==='Room chat requires the updated server.')chatStatus.textContent='';
+  const atBottom=chatLog.scrollHeight-chatLog.scrollTop-chatLog.clientHeight<12;
+  for(const {id,name,message} of messages){
+   if(id<=chatAfter)continue;
+   chatAfter=id;
+   const line=document.createElement('div');
+   const author=document.createElement('strong');
+   author.textContent=name+': ';
+   line.append(author,document.createTextNode(message));
+   chatLog.append(line);
+  }
+  while(chatLog.childElementCount>50)chatLog.firstElementChild.remove();
+  if(atBottom)chatLog.scrollTop=chatLog.scrollHeight;
+ }
+ let sending=false;
+ chatInput.addEventListener('input',()=>{
+  chatSend.disabled=sending||!chatInput.value.trim();
+ });
+ chatForm.addEventListener('submit',async event=>{
+  event.preventDefault();
+  const current=session,gen=generation,draft=chatInput.value;
+  if(!current||chatInput.disabled||sending||!draft.trim())return;
+  sending=true;
+  chatSend.disabled=true;
+  chatStatus.textContent='';
+  try{
+   await request('/chat',{...current,message:draft});
+   if(gen===generation&&chatInput.value===draft)chatInput.value='';
+  }catch(error){
+   if(gen===generation)chatStatus.textContent=error.message;
+  }finally{
+   sending=false;
+   chatSend.disabled=chatInput.disabled||!chatInput.value.trim();
+  }
+ });
  const directory=document.createElement('div');
  directory.hidden=true;
  const directoryStatus=document.createElement('p');
@@ -100,18 +177,18 @@ function mount(){
   }
  });
  globalButton.setAttribute('aria-expanded','false');
- for(const [label,fn]of [['Create Room',()=>connect(true)],['Join Room',()=>connect(false)],['Leave',()=>{generation++;const old=session;session=null;clear();list.textContent='';status.textContent='Offline';if(old)request('/leave',old).catch(()=>{})}]]){
+ for(const [label,fn]of [['Create Room',()=>connect(true)],['Join Room',()=>connect(false)],['Leave',()=>{generation++;const old=session;session=null;resetChat();clear();list.textContent='';status.textContent='Offline';if(old)request('/leave',old).catch(()=>{})}]]){
   buttons.append(makeButton(label,fn));
  }
  buttons.append(globalButton);
- panel.append(status,list,directory);document.body.append(panel);
+ panel.append(status,list,chat,directory);document.body.append(panel);
  panel.addEventListener('toggle',refreshRooms);
  setInterval(refreshRooms,5000);
  for(const event of ['keydown','keyup','pointerdown','touchstart'])panel.addEventListener(event,e=>e.stopPropagation());
  setInterval(async()=>{
   if(!session||!adapter||busy)return;busy=true;const current=session,gen=generation;
-  try{const result=await request('/sync',{...current,state:adapter.snapshot()});if(gen===generation){
-   peers=result.peers;adapter.receive?.(result);list.textContent='Players: '+result.names.join(', ');status.textContent='Room '+current.code+' • connected';
+  try{const result=await request('/sync',{...current,state:adapter.snapshot(),chatAfter});if(gen===generation){
+   receiveChat(result.chat);peers=result.peers;adapter.receive?.(result);list.textContent='Players: '+result.names.join(', ');status.textContent='Room '+current.code+' • connected';
   }}catch(e){if(gen===generation){peers=[];status.textContent='Connection lost: '+e.message}}finally{busy=false}
  },250);
 }

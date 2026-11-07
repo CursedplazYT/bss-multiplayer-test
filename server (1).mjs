@@ -2,7 +2,10 @@ import http from 'node:http';
 import {randomBytes} from 'node:crypto';
 import {cleanExtras,updateWorld,claimDrop} from './world.mjs';
 const rooms=new Map();
+const roomChats=new WeakMap();
 const roomCapacity=6;
+const chatHistoryLimit=50;
+const chatMessageLimit=200;
 const origin=process.env.ALLOWED_ORIGIN||'https://cursedplazyt.github.io';
 const fail=(status,message)=>Object.assign(new Error(message),{status});
 function cleanState(s){
@@ -44,6 +47,7 @@ export const server=http.createServer(async(req,res)=>{
    let code=String(data.code||'').toUpperCase(),room;
    if(req.url==='/create'){
     if(rooms.size>=200)throw fail(503,'Server full');do{code=randomBytes(3).toString('hex').toUpperCase()}while(rooms.has(code));room=new Map();rooms.set(code,room)
+    roomChats.set(room,{nextId:1,messages:[]});
    }else{room=rooms.get(code);if(!room)throw fail(404,'Room not found')}
    if(room.size>=roomCapacity)throw fail(409,'Room full');
    const id=randomBytes(12).toString('hex'),token=randomBytes(24).toString('hex');
@@ -53,12 +57,25 @@ export const server=http.createServer(async(req,res)=>{
   }
   const room=rooms.get(data.code),p=room?.get(data.id);
   if(!p||p.token!==data.token)throw fail(401,'Room session expired. Join again.');
+  const chat=roomChats.get(room);
+  if(req.url==='/chat'){
+   if(typeof data.message!=='string')throw fail(400,'Enter a message.');
+   const message=data.message.trim();
+   if(!message||message.length>chatMessageLimit)throw fail(400,'Enter 1–200 characters.');
+   if(now-(p.lastChat??0)<750)throw fail(429,'Wait a moment before sending another message.');
+   p.lastChat=now;
+   chat.messages.push({id:chat.nextId++,name:p.name,message});
+   if(chat.messages.length>chatHistoryLimit)chat.messages.shift();
+   return send(200,{ok:true});
+  }
   if(req.url==='/claim')return send(200,claimDrop(room,p,data.dropId,now));
   if(req.url==='/leave'){room.delete(p.id);return send(200,{ok:true,protocol:2})}
   if(req.url!=='/sync')throw fail(404,'Not found');
   if(now-p.lastSync<80)throw fail(429,'Too many updates');p.state=cleanState(data.state);p.seen=now;p.lastSync=now;
   const shared=updateWorld(room,p,data.state,now);
-  return send(200,{protocol:2,...shared,peers:[...room.values()].filter(v=>v.id!==p.id).map(({id,name,state,slot})=>({id,name,state,slot})),names:[...room.values()].map(v=>v.name)});
+  const after=Number.isSafeInteger(data.chatAfter)&&data.chatAfter>=0?data.chatAfter:0;
+  const messages=data.chatAfter===undefined?[]:chat.messages.filter(message=>message.id>after);
+  return send(200,{protocol:2,...shared,chat:messages,peers:[...room.values()].filter(v=>v.id!==p.id).map(({id,name,state,slot})=>({id,name,state,slot})),names:[...room.values()].map(v=>v.name)});
  }catch(e){send(e.status||500,{error:e.status?e.message:'Server error'})}
 });
 if(process.env.NODE_ENV!=='test')server.listen(Number(process.env.PORT)||3000,'0.0.0.0',()=>console.log('BSS room server ready'));
